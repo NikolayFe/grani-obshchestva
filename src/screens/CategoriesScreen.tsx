@@ -37,9 +37,9 @@ const categories = [
   },
   {
     id: 4,
-    title: 'Финансовая грамотность',
-    description: 'Управление личными финансами, инвестиции и сбережения.',
-    icon: 'cash' as const,
+    title: 'Социология',
+    description: 'Социальные группы, статусы, роли и общественные процессы.',
+    icon: 'people' as const,
     color: colors.tertiary.main,
     bg: '#FFF8E0',
     terms: 0,
@@ -90,7 +90,7 @@ export default function CategoriesScreen({ navigation }: any) {
               <Pressable
                 key={cat.id}
                 style={[styles.card, { borderLeftColor: cat.color }]}
-                onPress={() => navigation.navigate('Test')}
+                onPress={() => navigation.navigate('CategoryTopic', { category: cat })}
               >
                 <View style={styles.cardTop}>
                   <View style={[styles.iconCircle, { backgroundColor: cat.bg }]}>

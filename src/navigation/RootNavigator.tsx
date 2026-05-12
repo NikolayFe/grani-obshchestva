@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
+import CategoryTopicScreen from '../screens/CategoryTopicScreen';
 import GlossaryScreen from '../screens/GlossaryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import { colors } from '../theme/colors';
@@ -13,6 +14,16 @@ import { AuthContext } from './AuthContext';
 
 const Stack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
+const CategoriesStack = createStackNavigator();
+
+function CategoriesTabStack() {
+  return (
+    <CategoriesStack.Navigator screenOptions={{ headerShown: false }}>
+      <CategoriesStack.Screen name="CategoriesList" component={CategoriesScreen} />
+      <CategoriesStack.Screen name="CategoryTopic" component={CategoryTopicScreen} />
+    </CategoriesStack.Navigator>
+  );
+}
 
 function MainTabs() {
   return (
@@ -53,7 +64,7 @@ function MainTabs() {
       />
       <Tabs.Screen
         name="Categories"
-        component={CategoriesScreen}
+        component={CategoriesTabStack}
         options={{ title: 'Категории' }}
       />
       <Tabs.Screen
