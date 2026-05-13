@@ -9,8 +9,10 @@ import CategoriesScreen from '../screens/CategoriesScreen';
 import CategoryTopicScreen from '../screens/CategoryTopicScreen';
 import GlossaryScreen from '../screens/GlossaryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import RatingScreen from '../screens/RatingScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
 import { colors } from '../theme/colors';
-import { AuthContext } from './AuthContext';
+import { AuthContext, LearningCategory } from './AuthContext';
 
 const Stack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -83,13 +85,16 @@ function MainTabs() {
 
 export function RootNavigator() {
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [lastOpenedCategory, setLastOpenedCategory] = useState<LearningCategory | null>(null);
 
   const authContextValue = useMemo(
     () => ({
       signIn: () => setIsSignedIn(true),
       signOut: () => setIsSignedIn(false),
+      lastOpenedCategory,
+      setLastOpenedCategory,
     }),
-    []
+    [lastOpenedCategory]
   );
 
   return (
@@ -108,11 +113,23 @@ export function RootNavigator() {
           }}
         >
           {isSignedIn ? (
-            <Stack.Screen
-              name="Main"
-              component={MainTabs}
-              options={{ title: 'Грани общества', headerShown: false }}
-            />
+            <>
+              <Stack.Screen
+                name="Main"
+                component={MainTabs}
+                options={{ title: 'Грани общества', headerShown: false }}
+              />
+              <Stack.Screen
+                name="Rating"
+                component={RatingScreen}
+                options={{ title: 'Рейтинг' }}
+              />
+              <Stack.Screen
+                name="Achievements"
+                component={AchievementsScreen}
+                options={{ headerShown: false }}
+              />
+            </>
           ) : (
             <Stack.Screen
               name="Register"

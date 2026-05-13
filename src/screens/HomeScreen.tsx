@@ -3,59 +3,266 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-
-const categories = [
-  { id: 1, title: 'Гражданское право', questions: 12, color: colors.primary.main },
-  { id: 2, title: 'Экономика', questions: 10, color: colors.secondary.main },
-  { id: 3, title: 'Политика', questions: 8, color: '#5B5BD6' },
-  { id: 4, title: 'Социология', questions: 14, color: colors.tertiary.main },
-];
+import { AuthContext } from '../navigation/AuthContext';
+import { ratingData, ratingPeriodLabels, RatingPeriod } from '../data/ratingData';
+import { activityData, activityPeriodLabels, ActivityPeriod } from '../data/activityData';
 
 export default function HomeScreen({ navigation }: any) {
+  const { lastOpenedCategory } = React.useContext(AuthContext);
+  const [ratingPeriod, setRatingPeriod] = React.useState<RatingPeriod>('week');
+  const currentRating = ratingData[ratingPeriod];
+  const [activityPeriod, setActivityPeriod] = React.useState<ActivityPeriod>('week');
+  const currentActivity = activityData[activityPeriod];
+  const topPerformer = currentRating.leaderboard[0];
+  const standingList = currentRating.leaderboard.slice(1);
+  const currentUser = currentRating.leaderboard.find((user) => user.isCurrentUser) ?? currentRating.leaderboard[currentRating.leaderboard.length - 1];
+  const courseTitle = lastOpenedCategory?.title ?? 'Обществознание';
+  const courseSubtitle = lastOpenedCategory
+    ? `Продолжи обучение в категории «${lastOpenedCategory.title}». Открыто ${lastOpenedCategory.terms} из ${lastOpenedCategory.total} терминов.`
+    : 'Осталось 4 модуля до завершения блока «Экономика».';
+
+  const handleContinuePress = () => {
+    if (lastOpenedCategory) {
+      navigation.navigate('Categories', {
+        screen: 'CategoryTopic',
+        params: { category: lastOpenedCategory },
+      });
+      return;
+    }
+
+    navigation.navigate('Categories');
+  };
+
+  const handleOpenRating = () => {
+    navigation.navigate('Rating');
+  };
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
-          <Text style={styles.heroLabel}>Ударный режим</Text>
-          <Text style={styles.heroTitle}>Грани общества</Text>
-          <Text style={styles.heroSubtitle}>
-            Короткие игровые сессии для закрепления материала каждый день.
-          </Text>
-          <View style={styles.heroMetaRow}>
-            <View style={styles.heroMetaPill}>
-              <Ionicons name="flame" size={14} color={colors.tertiary.main} />
-              <Text style={styles.heroMetaText}>15 дней подряд</Text>
+        <View style={styles.headerRow}>
+          <View style={styles.brandRow}>
+            <View style={styles.avatar}>
+              <Ionicons name="person" size={16} color={colors.primary.main} />
             </View>
-            <View style={styles.heroMetaPill}>
-              <Ionicons name="star" size={14} color={colors.secondary.main} />
-              <Text style={styles.heroMetaText}>820 XP</Text>
-            </View>
+            <Text style={styles.brandText}>Грани общества</Text>
+          </View>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>1240 XP</Text>
+            <Text style={styles.headerDot}>•</Text>
+            <Ionicons name="flame" size={12} color={colors.tertiary.main} />
+            <Text style={styles.headerBadgeText}>12</Text>
           </View>
         </View>
+
+        <View style={styles.welcomeBlock}>
+          <Text style={styles.welcomeTitle}>Привет, Александр!</Text>
+          <Text style={styles.wave}>👋</Text>
+        </View>
+        <Text style={styles.welcomeSubtitle}>Продолжай в том же духе, ты на верном пути</Text>
 
         <View style={styles.progressCard}>
-          <Text style={styles.progressTitle}>Ваш прогресс</Text>
-          <Text style={styles.progressValue}>42%</Text>
-          <View style={styles.progressTrack}>
-            <View style={styles.progressFill} />
+          <View style={styles.progressCircleWrap}>
+            <View style={styles.progressCircleOuter}>
+              <View style={styles.progressCircleInner}>
+                <Text style={styles.progressCircleText}>75%</Text>
+              </View>
+            </View>
           </View>
+
+          <View style={styles.courseTag}>
+            <Ionicons name="bookmarks" size={12} color={colors.primary.main} />
+            <Text style={styles.courseTagText}>Текущий курс</Text>
+          </View>
+
+          <Text style={styles.courseTitle}>{courseTitle}</Text>
+          <Text style={styles.courseSubtitle}>{courseSubtitle}</Text>
+
+          <Pressable style={styles.learningButton} onPress={handleContinuePress}>
+            <Text style={styles.learningButtonText}>Продолжить обучение</Text>
+            <Ionicons name="arrow-forward" size={14} color="#FFFFFF" />
+          </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Темы на сегодня</Text>
-        {categories.map((category) => (
-          <Pressable 
-            key={category.id}
-            style={[styles.categoryCard, { borderLeftColor: category.color }]}
-            onPress={() => navigation.navigate('Test')}
-          >
-            <Text style={styles.categoryTitle}>{category.title}</Text>
-            <Text style={styles.categoryMeta}>Теория + {category.questions} вопросов</Text>
-          </Pressable>
-        ))}
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeader}>
+            <View>
+              <Text style={styles.activityLabel}>АКТИВНОСТЬ</Text>
+              <Text style={styles.activityStat}>
+                {currentActivity.activeDays} из {currentActivity.totalDays} дней · серия {currentActivity.streak} 🔥
+              </Text>
+            </View>
+            <View style={styles.activityTabs}>
+              <Pressable
+                style={[styles.activityTab, activityPeriod === 'week' && styles.activityTabActive]}
+                onPress={() => setActivityPeriod('week')}
+              >
+                <Text style={[styles.activityTabText, activityPeriod === 'week' && styles.activityTabTextActive]}>
+                  {activityPeriodLabels.week}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.activityTab, activityPeriod === 'month' && styles.activityTabActive]}
+                onPress={() => setActivityPeriod('month')}
+              >
+                <Text style={[styles.activityTabText, activityPeriod === 'month' && styles.activityTabTextActive]}>
+                  {activityPeriodLabels.month}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
 
-        <Pressable style={styles.mainButton} onPress={() => navigation.navigate('Test')}>
-          <Text style={styles.mainButtonText}>Начать тренировку</Text>
-        </Pressable>
+          {currentActivity.mode === 'week' ? (
+            <View style={styles.activityRow}>
+              {currentActivity.days.map((day) => (
+                <View key={day.id} style={styles.dayItem}>
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      day.active && styles.dayCircleActive,
+                      day.current && styles.dayCircleCurrent,
+                    ]}
+                  >
+                    {day.active ? (
+                      <Ionicons
+                        name={day.current ? 'flame' : 'checkmark'}
+                        size={12}
+                        color={day.current ? '#FFFFFF' : colors.primary.main}
+                      />
+                    ) : (
+                      <Text style={styles.dayCircleInactive}>○</Text>
+                    )}
+                  </View>
+                  <Text style={[styles.dayLabel, day.current && styles.dayLabelCurrent]}>{day.label}</Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.monthGrid}>
+              {currentActivity.weeks.map((week, wi) => (
+                <View key={wi} style={styles.monthWeekRow}>
+                  <Text style={styles.monthWeekLabel}>{week.weekLabel}</Text>
+                  <View style={styles.monthDots}>
+                    {week.days.map((active, di) => (
+                      <View
+                        key={di}
+                        style={[styles.monthDot, active && styles.monthDotActive]}
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.ratingCard}>
+          <View style={styles.ratingHeader}>
+            <View>
+              <View style={styles.ratingTitleRow}>
+                <Ionicons name="trophy-outline" size={16} color={colors.tertiary.main} />
+                <Text style={styles.ratingTitle}>Рейтинг</Text>
+              </View>
+              <Text style={styles.ratingSubtitle}>{currentRating.summary}</Text>
+            </View>
+            <Pressable style={styles.ratingGhostButton} onPress={handleOpenRating}>
+              <Text style={styles.ratingGhostButtonText}>Открыть</Text>
+              <Ionicons name="chevron-forward" size={14} color={colors.primary.main} />
+            </Pressable>
+          </View>
+
+          <View style={styles.ratingTabs}>
+            <Pressable
+              style={[styles.ratingTab, ratingPeriod === 'week' && styles.ratingTabActive]}
+              onPress={() => setRatingPeriod('week')}
+            >
+              <Text style={[styles.ratingTabText, ratingPeriod === 'week' && styles.ratingTabTextActive]}>
+                {ratingPeriodLabels.week}
+              </Text>
+            </Pressable>
+            <Pressable
+              style={[styles.ratingTab, ratingPeriod === 'allTime' && styles.ratingTabActive]}
+              onPress={() => setRatingPeriod('allTime')}
+            >
+              <Text style={[styles.ratingTabText, ratingPeriod === 'allTime' && styles.ratingTabTextActive]}>
+                {ratingPeriodLabels.allTime}
+              </Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.topLeaderCard}>
+            <View style={styles.topLeaderHeader}>
+              <View style={styles.topLeaderBadge}>
+                <Ionicons name="sparkles" size={12} color={colors.tertiary.main} />
+                <Text style={styles.topLeaderBadgeText}>{currentRating.leaderLabel}</Text>
+              </View>
+              <Text style={styles.topLeaderPlace}>#{topPerformer.place}</Text>
+            </View>
+
+            <View style={styles.topLeaderBody}>
+              <View style={[styles.topLeaderAvatar, { backgroundColor: topPerformer.accent }]}>
+                <Ionicons name="person" size={28} color={colors.neutral.dark} />
+              </View>
+              <View style={styles.topLeaderInfo}>
+                <Text style={styles.topLeaderName}>{topPerformer.name}</Text>
+                <Text style={styles.topLeaderXp}>{topPerformer.xp.toLocaleString('ru-RU')} XP</Text>
+                <Text style={styles.topLeaderDelta}>{topPerformer.delta}</Text>
+              </View>
+              <View style={styles.topLeaderReward}>
+                <Ionicons name="trophy" size={16} color={colors.tertiary.main} />
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.standingsList}>
+            {standingList.map((user) => (
+              <View
+                key={user.id}
+                style={[styles.standingRow, user.isCurrentUser && styles.standingRowCurrent]}
+              >
+                <View style={styles.standingLeft}>
+                  <View style={[styles.standingPlace, user.isCurrentUser && styles.standingPlaceCurrent]}>
+                    <Text
+                      style={[
+                        styles.standingPlaceText,
+                        user.isCurrentUser && styles.standingPlaceTextCurrent,
+                      ]}
+                    >
+                      {user.place}
+                    </Text>
+                  </View>
+                  <View style={[styles.standingAvatar, { backgroundColor: user.accent }]}>
+                    <Ionicons name="person" size={18} color={colors.neutral.dark} />
+                  </View>
+                  <View>
+                    <View style={styles.standingNameRow}>
+                      <Text style={styles.standingName}>{user.name}</Text>
+                      {user.isCurrentUser && <Text style={styles.youBadge}>Вы</Text>}
+                    </View>
+                    <Text style={styles.standingDelta}>{user.delta}</Text>
+                  </View>
+                </View>
+                <Text style={styles.standingXp}>{user.xp.toLocaleString('ru-RU')} XP</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.currentUserCard}>
+            <View style={styles.currentUserHeader}>
+              <Text style={styles.currentUserLabel}>Твоя позиция</Text>
+              <Text style={styles.currentUserTrend}>{currentRating.currentTrend}</Text>
+            </View>
+            <View style={styles.currentUserBody}>
+              <View>
+                <Text style={styles.currentUserPlace}>#{currentUser.place}</Text>
+                <Text style={styles.currentUserText}>{currentRating.currentHint}</Text>
+              </View>
+              <Pressable style={styles.currentUserButton} onPress={handleOpenRating}>
+                <Text style={styles.currentUserButtonText}>Поднять рейтинг</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -64,7 +271,7 @@ export default function HomeScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F4FB',
   },
   content: {
     paddingHorizontal: 16,
@@ -72,116 +279,518 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 14,
   },
-  hero: {
-    padding: 18,
-    borderRadius: 18,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
-  heroLabel: {
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  avatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F0E1FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brandText: {
     color: colors.primary.main,
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 8,
-  },
-  heroTitle: {
-    color: colors.text.primary,
-    fontSize: 28,
+    fontSize: 14,
     fontWeight: '800',
-    marginBottom: 6,
   },
-  heroSubtitle: {
+  headerBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E7DDF0',
+    backgroundColor: '#FBF7FF',
+  },
+  headerBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.text.secondary,
+  },
+  headerDot: {
+    fontSize: 10,
+    color: colors.neutral.light,
+  },
+  welcomeBlock: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  welcomeTitle: {
+    color: colors.text.primary,
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  wave: {
+    fontSize: 26,
+  },
+  welcomeSubtitle: {
     color: colors.text.secondary,
     fontSize: 14,
     lineHeight: 20,
   },
-  heroMetaRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
+  progressCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#ECE2F3',
   },
-  heroMetaPill: {
+  progressCircleWrap: {
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  progressCircleOuter: {
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 6,
+    borderColor: colors.primary.main,
+    borderLeftColor: '#E8DDF4',
+    borderBottomColor: '#E8DDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '-45deg' }],
+  },
+  progressCircleInner: {
+    transform: [{ rotate: '45deg' }],
+  },
+  progressCircleText: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.primary.main,
+  },
+  courseTag: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#F3E7FF',
+    marginBottom: 8,
+  },
+  courseTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
+  courseTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.text.primary,
+    marginBottom: 6,
+  },
+  courseSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text.secondary,
+    marginBottom: 14,
+  },
+  learningButton: {
+    backgroundColor: colors.primary.main,
+    borderRadius: 999,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  learningButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  activityCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#ECE2F3',
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  activityLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.neutral.main,
+    letterSpacing: 0.6,
+    marginBottom: 3,
+  },
+  activityStat: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  activityTabs: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  activityTab: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: '#F0EAF6',
+  },
+  activityTabActive: {
+    backgroundColor: '#EEE5FF',
+  },
+  activityTabText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.neutral.dark,
+  },
+  activityTabTextActive: {
+    color: colors.primary.main,
+  },
+  monthGrid: {
+    gap: 8,
+  },
+  monthWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  monthWeekLabel: {
+    fontSize: 10,
+    color: colors.text.secondary,
+    width: 96,
+  },
+  monthDots: {
+    flexDirection: 'row',
+    gap: 6,
+    flex: 1,
+  },
+  monthDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 7,
+    backgroundColor: '#EDE5F4',
+  },
+  monthDotActive: {
+    backgroundColor: colors.primary.main,
+  },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  dayItem: {
+    alignItems: 'center',
+    gap: 7,
+  },
+  dayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E5DDF0',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircleActive: {
+    backgroundColor: '#F1E7FD',
+    borderColor: '#E2D2F8',
+  },
+  dayCircleCurrent: {
+    backgroundColor: colors.primary.main,
+    borderColor: colors.primary.main,
+  },
+  dayCircleInactive: {
+    color: '#C3B7CF',
+    fontSize: 12,
+  },
+  dayLabel: {
+    fontSize: 11,
+    color: colors.text.secondary,
+  },
+  dayLabelCurrent: {
+    color: colors.primary.main,
+    fontWeight: '700',
+  },
+  ratingCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#ECE2F3',
+  },
+  ratingHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  ratingTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    marginBottom: 4,
+  },
+  ratingTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text.primary,
+  },
+  ratingSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text.secondary,
+    maxWidth: 230,
+  },
+  ratingGhostButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#F4ECFB',
+  },
+  ratingGhostButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
+  ratingTabs: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  ratingTab: {
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: '#F0EAF6',
+  },
+  ratingTabActive: {
+    backgroundColor: '#EEE5FF',
+  },
+  ratingTabText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.neutral.dark,
+  },
+  ratingTabTextActive: {
+    color: colors.primary.main,
+  },
+  topLeaderCard: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: '#FBF7FF',
+    borderWidth: 1,
+    borderColor: '#EBDCF8',
+    marginBottom: 14,
+  },
+  topLeaderHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  topLeaderBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: '#FFF4D1',
   },
-  heroMetaText: {
-    color: colors.text.primary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  progressCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  progressTitle: {
-    color: colors.text.secondary,
-    fontSize: 14,
-  },
-  progressValue: {
-    color: colors.text.primary,
-    fontSize: 34,
+  topLeaderBadgeText: {
+    fontSize: 11,
     fontWeight: '700',
-    marginTop: 6,
-    marginBottom: 10,
+    color: colors.tertiary.dark,
   },
-  progressTrack: {
-    width: '100%',
-    height: 9,
-    borderRadius: 999,
-    backgroundColor: '#F0E4FA',
+  topLeaderPlace: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary.main,
   },
-  progressFill: {
-    width: '42%',
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: colors.primary.main,
+  topLeaderBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  sectionTitle: {
-    color: colors.text.primary,
+  topLeaderAvatar: {
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topLeaderInfo: {
+    flex: 1,
+  },
+  topLeaderName: {
     fontSize: 18,
-    fontWeight: '700',
-    marginTop: 2,
-  },
-  categoryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 14,
-    borderLeftWidth: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categoryTitle: {
+    fontWeight: '800',
     color: colors.text.primary,
-    fontSize: 16,
-    fontWeight: '600',
     marginBottom: 4,
   },
-  categoryMeta: {
+  topLeaderXp: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary.main,
+    marginBottom: 4,
+  },
+  topLeaderDelta: {
+    fontSize: 12,
     color: colors.text.secondary,
-    fontSize: 13,
   },
-  mainButton: {
-    marginTop: 6,
-    backgroundColor: colors.primary.main,
-    borderRadius: 14,
-    paddingVertical: 14,
+  topLeaderReward: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF0C2',
   },
-  mainButtonText: {
-    color: colors.text.light,
-    fontSize: 16,
+  standingsList: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  standingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: '#FAF7FD',
+    borderWidth: 1,
+    borderColor: '#EEE5F5',
+  },
+  standingRowCurrent: {
+    backgroundColor: '#F3E8FF',
+    borderColor: '#DFC9F6',
+  },
+  standingLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  standingPlace: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#EFE8F6',
+  },
+  standingPlaceCurrent: {
+    backgroundColor: colors.primary.main,
+  },
+  standingPlaceText: {
+    fontSize: 12,
+    color: colors.text.primary,
     fontWeight: '800',
+  },
+  standingPlaceTextCurrent: {
+    color: '#FFFFFF',
+  },
+  standingAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  standingNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  standingName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  youBadge: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.primary.main,
+    backgroundColor: '#EFE2FF',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  standingDelta: {
+    fontSize: 12,
+    color: colors.text.secondary,
+  },
+  standingXp: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.primary.main,
+  },
+  currentUserCard: {
+    borderRadius: 18,
+    padding: 14,
+    backgroundColor: '#241431',
+  },
+  currentUserHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  currentUserLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D8C8E8',
+  },
+  currentUserTrend: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#A7F3B9',
+  },
+  currentUserBody: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  currentUserPlace: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  currentUserText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#D8C8E8',
+    maxWidth: 180,
+  },
+  currentUserButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+  },
+  currentUserButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#241431',
   },
 });
 

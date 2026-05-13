@@ -1,21 +1,13 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-
-type CategoryParam = {
-  title: string;
-  description: string;
-  color: string;
-  bg: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  terms: number;
-  total: number;
-};
+import { AuthContext, LearningCategory } from '../navigation/AuthContext';
 
 export default function CategoryTopicScreen({ route, navigation }: any) {
-  const category: CategoryParam = route?.params?.category ?? {
+  const { setLastOpenedCategory } = React.useContext(AuthContext);
+  const category: LearningCategory = route?.params?.category ?? {
     title: 'Конституция',
     description: 'Основы устройства государства и системы прав.',
     color: '#5B5BD6',
@@ -24,6 +16,10 @@ export default function CategoryTopicScreen({ route, navigation }: any) {
     terms: 40,
     total: 50,
   };
+
+  useEffect(() => {
+    setLastOpenedCategory(category);
+  }, [category, setLastOpenedCategory]);
 
   const progressPercent = Math.round((category.terms / category.total) * 100);
 
