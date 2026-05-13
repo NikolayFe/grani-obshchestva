@@ -11,6 +11,7 @@ import GlossaryScreen from '../screens/GlossaryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import RatingScreen from '../screens/RatingScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
+import TestScreen from '../screens/TestScreen';
 import { colors } from '../theme/colors';
 import { AuthContext, LearningCategory } from './AuthContext';
 
@@ -127,6 +128,11 @@ export function RootNavigator() {
               <Stack.Screen
                 name="Achievements"
                 component={AchievementsScreen}
+                options={{ headerShown: false }}
+              />
+              <Stack.Screen
+                name="Test"
+                component={TestScreen}
                 options={{ headerShown: false }}
               />
             </>
