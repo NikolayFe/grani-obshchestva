@@ -2,8 +2,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
-import { getCategories, getTerms } from '../api/contentApi';
+import { getCategories, getTerms, getCategoryTestStagesProgress } from '../api/contentApi';
 import { useGlossary } from '../contexts/GlossaryContext';
 
 const categoryUiMeta: Record<
@@ -54,61 +55,85 @@ export default function CategoriesScreen({ navigation }: any) {
   const [categories, setCategories] = useState<any[]>([]);
   const [errorText, setErrorText] = useState('');
   const [allTerms, setAllTerms] = useState<any[]>([]);
+  const [testProgressBySlug, setTestProgressBySlug] = useState<Record<string, number>>({});
   
-  const { knownTermIds } = useGlossary();
+  const { knownTermIds, userId } = useGlossary();
 
-  useEffect(() => {
-    let mounted = true;
+  const loadData = React.useCallback(async (mountedRef?: { current: boolean }) => {
+    try {
+      setErrorText('');
 
-    const loadData = async () => {
-      try {
-        setErrorText('');
-        
-        // Загружаем категории
-        const categories = await getCategories();
-        
-        // Загружаем все термины
-        const terms = await getTerms();
+      const categories = await getCategories();
+      const terms = await getTerms();
 
-        if (!mounted) return;
+      if (mountedRef && !mountedRef.current) return;
 
-        setAllTerms(terms);
+      setAllTerms(terms);
 
-        const mapped = categories.map((item) => {
-          const meta = categoryUiMeta[item.slug] || {
-            description: 'Учебная категория',
-            icon: 'document-text' as const,
-            bg: '#F3F4F6',
-          };
+      const mapped = categories.map((item) => {
+        const meta = categoryUiMeta[item.slug] || {
+          description: 'Учебная категория',
+          icon: 'document-text' as const,
+          bg: '#F3F4F6',
+        };
 
-          const total = item._count?.terms ?? 0;
+        const total = item._count?.terms ?? 0;
 
-          return {
-            id: item.id,
-            title: item.title,
-            description: meta.description,
-            icon: meta.icon,
-            color: item.color,
-            bg: meta.bg,
-            total,
-            slug: item.slug,
-            categoryId: item.id,
-          };
-        });
+        return {
+          id: item.id,
+          title: item.title,
+          description: meta.description,
+          icon: meta.icon,
+          color: item.color,
+          bg: meta.bg,
+          terms: 0,
+          total,
+          slug: item.slug,
+          categoryId: item.id,
+        };
+      });
 
-        setCategories(mapped);
-      } catch (error: any) {
-        if (!mounted) return;
+      setCategories(mapped);
+
+      if (userId) {
+        const testProgressEntries = await Promise.all(
+          mapped.map(async (item) => {
+            try {
+              const progress = await getCategoryTestStagesProgress(userId, item.slug);
+              return [item.slug, progress.testsProgressPercent] as const;
+            } catch {
+              return [item.slug, 0] as const;
+            }
+          })
+        );
+
+        if (!mountedRef || mountedRef.current) {
+          setTestProgressBySlug(Object.fromEntries(testProgressEntries));
+        }
+      } else {
+        setTestProgressBySlug({});
+      }
+    } catch (error: any) {
+      if (!mountedRef || mountedRef.current) {
         setErrorText(error?.message || 'Не удалось загрузить категории');
       }
-    };
+    }
+  }, [userId]);
 
-    loadData();
+  useEffect(() => {
+    const mountedRef = { current: true };
+    void loadData(mountedRef);
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
-  }, []);
+  }, [loadData]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void loadData();
+    }, [loadData])
+  );
 
   const hasCategories = useMemo(() => categories.length > 0, [categories.length]);
 
@@ -184,14 +209,23 @@ export default function CategoriesScreen({ navigation }: any) {
             const glossaryProgress = categoryTerms.length > 0 
               ? (knownInCategory / categoryTerms.length) * 0.5
               : 0;
-            const testProgress = 0; // TODO: добавить результаты теста
+            const testProgress = (testProgressBySlug[cat.slug] || 0) / 100;
             const totalProgress = glossaryProgress + testProgress;
             
             return (
               <Pressable
                 key={cat.id}
                 style={[styles.card, { borderLeftColor: cat.color }]}
-                onPress={() => navigation.navigate('CategoryTopic', { category: cat })}
+                onPress={() =>
+                  navigation.navigate('CategoryTopic', {
+                    category: {
+                      ...cat,
+                      terms: knownInCategory,
+                      testProgressPercent: Math.round(testProgress * 100),
+                      overallProgressPercent: Math.round(totalProgress * 100),
+                    },
+                  })
+                }
               >
                 <View style={styles.cardTop}>
                   <View style={[styles.iconCircle, { backgroundColor: cat.bg }]}>

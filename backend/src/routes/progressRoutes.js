@@ -5,6 +5,8 @@ const {
   clearGlossaryProgress,
   clearGlossaryProgressByCategory,
   getTestQuestions,
+  saveCategoryTestStageResult,
+  getCategoryTestsStageProgress,
   saveCategoryTestAnswer,
   getCategoryTestProgress,
   getTestsSummary,
@@ -41,6 +43,18 @@ router.delete('/glossary', clearGlossaryProgress);
  * Получить тестовые вопросы
  */
 router.get('/tests/questions', getTestQuestions);
+
+/**
+ * POST /api/progress/tests/stage
+ * Сохранить результат этапа тестирования: { userId, categorySlug, stageKey, score, totalQuestions }
+ */
+router.post('/tests/stage', saveCategoryTestStageResult);
+
+/**
+ * GET /api/progress/tests/stage?userId=...&categorySlug=...
+ * Получить прогресс этапов тестирования по категории
+ */
+router.get('/tests/stage', getCategoryTestsStageProgress);
 
 /**
  * POST /api/progress/tests/answer

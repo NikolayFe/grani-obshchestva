@@ -542,6 +542,7 @@ function mapCuratedQuestion(rawQuestion) {
   return {
     text,
     source: 'category',
+    difficulty: 1,
     options: [
       { text: correct, isCorrect: true },
       { text: wrong1, isCorrect: false },
@@ -565,6 +566,7 @@ function buildTermConceptQuestions(allTerms, limit) {
     questions.push({
       text: `Какой термин точнее всего соответствует определению: "${definition}"?`,
       source: 'category',
+      difficulty: 1,
       options: [
         { text: current.term, isCorrect: true },
         { text: wrong1.term, isCorrect: false },
@@ -602,6 +604,7 @@ function buildGlossaryQuestions(allTerms) {
       questions.push({
         text: `Что означает термин \"${current.term}\"?`,
         source: 'glossary_term',
+        difficulty: 3,
         options: [
           { text: current.definition, isCorrect: true },
           { text: wrong1.definition, isCorrect: false },
@@ -614,6 +617,7 @@ function buildGlossaryQuestions(allTerms) {
       questions.push({
         text: `Какой термин соответствует определению: \"${definition}\"?`,
         source: 'glossary_term',
+        difficulty: 3,
         options: [
           { text: current.term, isCorrect: true },
           { text: wrong1.term, isCorrect: false },
@@ -632,6 +636,7 @@ async function main() {
 
   // Удаляем сначала зависимые тестовые данные.
   await prisma.userAnswer.deleteMany();
+  await prisma.userCategoryTestProgress.deleteMany();
   await prisma.dailyTestQuestion.deleteMany();
   await prisma.questionOption.deleteMany();
   await prisma.question.deleteMany();
@@ -663,7 +668,7 @@ async function main() {
         questions: {
           create: allQuestions.map((q) => ({
             text: q.text,
-            difficulty: 1,
+            difficulty: q.difficulty || 1,
             source: q.source,
             options: {
               create: q.options,

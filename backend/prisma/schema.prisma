@@ -1,4 +1,4 @@
-generator client {
+﻿generator client {
   provider = "prisma-client-js"
   engineType = "classic"
 }
@@ -37,6 +37,7 @@ model User {
   dailyProgress    UserDailyProgress[]
   answers          UserAnswer[]
   termProgress     UserTermProgress[]
+  categoryTestProgress UserCategoryTestProgress[]
 
   @@map("users")
 }
@@ -48,6 +49,7 @@ model Category {
   color     String
   terms     Term[]
   questions Question[]
+  categoryTestProgress UserCategoryTestProgress[]
 
   @@map("categories")
 }
@@ -152,6 +154,24 @@ model UserAnswer {
   @@map("user_answers")
 }
 
+model UserCategoryTestProgress {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @db.Uuid
+  categoryId     String   @db.Uuid
+  stageKey       String
+  score          Int
+  totalQuestions Int
+  passed         Boolean  @default(false)
+  completedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId, stageKey])
+  @@index([userId, categoryId])
+  @@map("user_category_test_progress")
+}
+
 model UserTermProgress {
   id        String   @id @default(uuid()) @db.Uuid
   userId    String   @db.Uuid
@@ -164,3 +184,5 @@ model UserTermProgress {
   @@index([userId])
   @@map("user_term_progress")
 }
+
+

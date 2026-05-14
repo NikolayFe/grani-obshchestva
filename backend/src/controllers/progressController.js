@@ -32,6 +32,41 @@ function shuffleArray(items) {
   return copy;
 }
 
+const CATEGORY_TEST_STAGES = {
+  basic_1: { title: 'Тест 1', questionCount: 25, minPercent: 80, weightPercent: 5, difficulty: 1 },
+  basic_2: { title: 'Тест 2', questionCount: 25, minPercent: 80, weightPercent: 5, difficulty: 1 },
+  final_3: { title: 'Итоговое тестирование', questionCount: 35, minPercent: 80, weightPercent: 40, difficulty: 3 },
+};
+
+function toStageProgressResponse(records) {
+  const stages = Object.entries(CATEGORY_TEST_STAGES).map(([stageKey, config]) => {
+    const record = records.find((item) => item.stageKey === stageKey) || null;
+    return {
+      stageKey,
+      title: config.title,
+      difficulty: config.difficulty,
+      questionCount: config.questionCount,
+      minPercent: config.minPercent,
+      weightPercent: config.weightPercent,
+      passed: Boolean(record?.passed),
+      score: record?.score || 0,
+      totalQuestions: record?.totalQuestions || config.questionCount,
+      completedAt: record?.completedAt || null,
+    };
+  });
+
+  const testsProgressPercent = stages
+    .filter((stage) => stage.passed)
+    .reduce((sum, stage) => sum + stage.weightPercent, 0);
+
+  return {
+    stages,
+    testsProgressPercent,
+    passedStages: stages.filter((stage) => stage.passed).length,
+    totalStages: stages.length,
+  };
+}
+
 /**
  * Получить список выученных терминов пользователя
  * GET /api/progress/glossary?userId=...
@@ -250,7 +285,7 @@ async function clearGlossaryProgressByCategory(req, res) {
  */
 async function getTestQuestions(req, res) {
   try {
-    const { categorySlug, limit } = req.query;
+    const { categorySlug, limit, difficulty } = req.query;
 
     const parsedLimit = Number.parseInt(String(limit || '12'), 10);
     const take = Number.isNaN(parsedLimit) ? 12 : Math.max(1, Math.min(parsedLimit, 100));
@@ -273,6 +308,17 @@ async function getTestQuestions(req, res) {
       }
 
       where.categoryId = category.id;
+    }
+
+    if (difficulty !== undefined) {
+      const parsedDifficulty = Number.parseInt(String(difficulty), 10);
+      if (Number.isNaN(parsedDifficulty) || parsedDifficulty < 1 || parsedDifficulty > 5) {
+        return res.status(400).json({
+          success: false,
+          message: 'difficulty должен быть целым числом от 1 до 5',
+        });
+      }
+      where.difficulty = parsedDifficulty;
     }
 
     const rawQuestions = await prisma.question.findMany({
@@ -312,6 +358,211 @@ async function getTestQuestions(req, res) {
     });
   } catch (error) {
     console.error('Ошибка при получении тестовых вопросов:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Внутренняя ошибка сервера',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+}
+
+/**
+ * Сохранить результат этапа тестирования по категории
+ * POST /api/progress/tests/stage
+ * Body: { userId, categorySlug, stageKey, score, totalQuestions }
+ */
+async function saveCategoryTestStageResult(req, res) {
+  try {
+    const { userId, categorySlug, stageKey, score, totalQuestions } = req.body;
+
+    if (!userId || !isValidUUID(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId обязателен и должен быть валидным UUID',
+      });
+    }
+
+    if (!categorySlug || typeof categorySlug !== 'string' || categorySlug.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'categorySlug обязателен',
+      });
+    }
+
+    if (!stageKey || typeof stageKey !== 'string' || !CATEGORY_TEST_STAGES[stageKey]) {
+      return res.status(400).json({
+        success: false,
+        message: 'stageKey некорректен',
+      });
+    }
+
+    const stageConfig = CATEGORY_TEST_STAGES[stageKey];
+    const parsedScore = Number.parseInt(String(score), 10);
+    const parsedTotal = Number.parseInt(String(totalQuestions), 10);
+
+    if (Number.isNaN(parsedScore) || parsedScore < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'score должен быть целым числом >= 0',
+      });
+    }
+
+    if (Number.isNaN(parsedTotal) || parsedTotal <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'totalQuestions должен быть целым числом > 0',
+      });
+    }
+
+    const prisma = getPrismaClient();
+
+    const user = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Пользователь не найден',
+      });
+    }
+
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug.trim() },
+      select: { id: true, slug: true, title: true },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Категория не найдена',
+      });
+    }
+
+    const percent = Math.round((parsedScore / parsedTotal) * 100);
+    const passed = percent >= stageConfig.minPercent;
+
+    await prisma.userCategoryTestProgress.upsert({
+      where: {
+        userId_categoryId_stageKey: {
+          userId,
+          categoryId: category.id,
+          stageKey,
+        },
+      },
+      update: {
+        score: parsedScore,
+        totalQuestions: parsedTotal,
+        passed,
+        completedAt: new Date(),
+      },
+      create: {
+        userId,
+        categoryId: category.id,
+        stageKey,
+        score: parsedScore,
+        totalQuestions: parsedTotal,
+        passed,
+      },
+    });
+
+    const records = await prisma.userCategoryTestProgress.findMany({
+      where: {
+        userId,
+        categoryId: category.id,
+      },
+      select: {
+        stageKey: true,
+        score: true,
+        totalQuestions: true,
+        passed: true,
+        completedAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        categorySlug: category.slug,
+        categoryTitle: category.title,
+        currentStage: {
+          stageKey,
+          title: stageConfig.title,
+          percent,
+          passed,
+          minPercent: stageConfig.minPercent,
+          weightPercent: stageConfig.weightPercent,
+        },
+        ...toStageProgressResponse(records),
+      },
+      message: passed ? 'Этап успешно засчитан' : 'Этап не пройден: нужно минимум 80%',
+    });
+  } catch (error) {
+    console.error('Ошибка при сохранении этапа тестирования:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Внутренняя ошибка сервера',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+}
+
+/**
+ * Получить прогресс этапов тестирования по категории
+ * GET /api/progress/tests/stage?userId=...&categorySlug=...
+ */
+async function getCategoryTestsStageProgress(req, res) {
+  try {
+    const { userId, categorySlug } = req.query;
+
+    if (!userId || !isValidUUID(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId обязателен и должен быть валидным UUID',
+      });
+    }
+
+    if (!categorySlug || typeof categorySlug !== 'string' || categorySlug.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'categorySlug обязателен',
+      });
+    }
+
+    const prisma = getPrismaClient();
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug.trim() },
+      select: { id: true, slug: true, title: true },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Категория не найдена',
+      });
+    }
+
+    const records = await prisma.userCategoryTestProgress.findMany({
+      where: {
+        userId,
+        categoryId: category.id,
+      },
+      select: {
+        stageKey: true,
+        score: true,
+        totalQuestions: true,
+        passed: true,
+        completedAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        categorySlug: category.slug,
+        categoryTitle: category.title,
+        ...toStageProgressResponse(records),
+      },
+    });
+  } catch (error) {
+    console.error('Ошибка при получении этапов тестирования по категории:', error);
     return res.status(500).json({
       success: false,
       message: 'Внутренняя ошибка сервера',
@@ -581,55 +832,33 @@ async function getTestsSummary(req, res) {
       },
     });
 
-    const answers = await prisma.userAnswer.findMany({
-      where: {
-        userId,
-        testContext: 'category',
-        question: {
-          categoryId: {
-            not: null,
-          },
-        },
-      },
+    const progressRecords = await prisma.userCategoryTestProgress.findMany({
+      where: { userId },
       select: {
-        questionId: true,
-        isCorrect: true,
-        answeredAt: true,
-        question: {
-          select: {
-            categoryId: true,
-          },
-        },
-      },
-      orderBy: {
-        answeredAt: 'desc',
+        categoryId: true,
+        stageKey: true,
+        score: true,
+        totalQuestions: true,
+        passed: true,
+        completedAt: true,
       },
     });
 
-    const latestByCategory = new Map();
-
-    for (const answer of answers) {
-      const categoryId = answer.question?.categoryId;
-      if (!categoryId) continue;
-
-      if (!latestByCategory.has(categoryId)) {
-        latestByCategory.set(categoryId, new Map());
+    const progressByCategory = new Map();
+    for (const record of progressRecords) {
+      if (!progressByCategory.has(record.categoryId)) {
+        progressByCategory.set(record.categoryId, []);
       }
-
-      const questionMap = latestByCategory.get(categoryId);
-      if (!questionMap.has(answer.questionId)) {
-        questionMap.set(answer.questionId, answer);
-      }
+      progressByCategory.get(record.categoryId).push(record);
     }
 
     const categoryStats = categories.map((category) => {
-      const questionMap = latestByCategory.get(category.id) || new Map();
-      const latestAnswers = Array.from(questionMap.values());
-
       const totalQuestions = category._count.questions;
-      const answeredQuestions = latestAnswers.length;
-      const correctAnswers = latestAnswers.filter((a) => a.isCorrect).length;
-      const progressPercent = totalQuestions === 0 ? 0 : Math.round((correctAnswers / totalQuestions) * 100);
+      const stageRecords = progressByCategory.get(category.id) || [];
+      const stageProgress = toStageProgressResponse(stageRecords);
+      const answeredQuestions = stageRecords.reduce((sum, item) => sum + item.totalQuestions, 0);
+      const correctAnswers = stageRecords.reduce((sum, item) => sum + item.score, 0);
+      const progressPercent = stageProgress.testsProgressPercent;
 
       return {
         categorySlug: category.slug,
@@ -638,6 +867,8 @@ async function getTestsSummary(req, res) {
         answeredQuestions,
         correctAnswers,
         progressPercent,
+        testsProgressPercent: stageProgress.testsProgressPercent,
+        stages: stageProgress.stages,
       };
     });
 
@@ -652,7 +883,11 @@ async function getTestsSummary(req, res) {
     );
 
     const overallProgressPercent =
-      totals.totalQuestions === 0 ? 0 : Math.round((totals.correctAnswers / totals.totalQuestions) * 100);
+      categoryStats.length === 0
+        ? 0
+        : Math.round(
+            categoryStats.reduce((sum, item) => sum + item.testsProgressPercent, 0) / categoryStats.length
+          );
 
     return res.status(200).json({
       success: true,
@@ -680,6 +915,8 @@ module.exports = {
   clearGlossaryProgress,
   clearGlossaryProgressByCategory,
   getTestQuestions,
+  saveCategoryTestStageResult,
+  getCategoryTestsStageProgress,
   saveCategoryTestAnswer,
   getCategoryTestProgress,
   getTestsSummary,

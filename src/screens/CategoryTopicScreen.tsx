@@ -21,7 +21,12 @@ export default function CategoryTopicScreen({ route, navigation }: any) {
     setLastOpenedCategory(category);
   }, [category, setLastOpenedCategory]);
 
-  const progressPercent = Math.round((category.terms / category.total) * 100);
+  const learnedTerms = Number(category?.terms || 0);
+  const totalTerms = Number(category?.total || 0);
+  const fallbackProgressPercent = totalTerms > 0 ? Math.round((learnedTerms / totalTerms) * 100) : 0;
+  const progressPercent = Number.isFinite(Number((category as any)?.overallProgressPercent))
+    ? Number((category as any).overallProgressPercent)
+    : fallbackProgressPercent;
 
   return (
     <SafeAreaView style={styles.screen}>
@@ -113,7 +118,7 @@ export default function CategoryTopicScreen({ route, navigation }: any) {
           </View>
           <Pressable
             style={styles.testsButton}
-            onPress={() => navigation.navigate('Test', { categoryTitle: category.title, categoryColor: category.color })}
+            onPress={() => navigation.navigate('CategoryTests', { category })}
           >
             <Text style={styles.testsButtonText}>Начать тестирование</Text>
             <Ionicons name="arrow-forward" size={14} color={category.color} />

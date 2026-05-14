@@ -7,6 +7,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import HomeScreen from '../screens/HomeScreen';
 import CategoriesScreen from '../screens/CategoriesScreen';
 import CategoryTopicScreen from '../screens/CategoryTopicScreen';
+import CategoryTestsScreen from '../screens/CategoryTestsScreen';
 import GlossaryScreen from '../screens/GlossaryScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import RatingScreen from '../screens/RatingScreen';
@@ -24,6 +25,7 @@ function CategoriesTabStack() {
     <CategoriesStack.Navigator screenOptions={{ headerShown: false }}>
       <CategoriesStack.Screen name="CategoriesList" component={CategoriesScreen} />
       <CategoriesStack.Screen name="CategoryTopic" component={CategoryTopicScreen} />
+      <CategoriesStack.Screen name="CategoryTests" component={CategoryTestsScreen} />
     </CategoriesStack.Navigator>
   );
 }
