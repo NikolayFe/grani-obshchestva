@@ -67,7 +67,10 @@ export default function CategoryTopicScreen({ route, navigation }: any) {
         </View>
 
         <View style={styles.sectionList}>
-          <Pressable style={styles.sectionCard}>
+          <Pressable
+            style={styles.sectionCard}
+            onPress={() => navigation.navigate('Theory', { category })}
+          >
             <View style={[styles.sectionIcon, { backgroundColor: '#F1EAFE' }]}>
               <Ionicons name="book" size={18} color={colors.primary.main} />
             </View>
