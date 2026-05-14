@@ -3,6 +3,7 @@ const {
   getGlossaryProgress,
   saveGlossaryProgress,
   clearGlossaryProgress,
+  clearGlossaryProgressByCategory,
 } = require('../controllers/progressController');
 
 const router = express.Router();
@@ -18,6 +19,12 @@ router.get('/glossary', getGlossaryProgress);
  * Сохранить выученные термины: { userId, termIds: string[] }
  */
 router.post('/glossary', saveGlossaryProgress);
+
+/**
+ * DELETE /api/progress/glossary/category
+ * Сбросить прогресс по одной теме: { userId, categorySlug }
+ */
+router.delete('/glossary/category', clearGlossaryProgressByCategory);
 
 /**
  * DELETE /api/progress/glossary

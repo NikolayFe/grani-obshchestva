@@ -157,4 +157,85 @@ async function clearGlossaryProgress(req, res) {
   }
 }
 
-module.exports = { getGlossaryProgress, saveGlossaryProgress, clearGlossaryProgress };
+/**
+ * Сбросить прогресс глоссария пользователя по одной теме
+ * DELETE /api/progress/glossary/category
+ * Body: { userId: string, categorySlug: string }
+ */
+async function clearGlossaryProgressByCategory(req, res) {
+  try {
+    const { userId, categorySlug } = req.body;
+
+    if (!userId || !isValidUUID(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'userId обязателен и должен быть валидным UUID',
+      });
+    }
+
+    if (!categorySlug || typeof categorySlug !== 'string' || categorySlug.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'categorySlug обязателен',
+      });
+    }
+
+    const prisma = getPrismaClient();
+
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug.trim() },
+      select: { id: true, title: true, slug: true },
+    });
+
+    if (!category) {
+      return res.status(404).json({
+        success: false,
+        message: 'Категория не найдена',
+      });
+    }
+
+    const terms = await prisma.term.findMany({
+      where: { categoryId: category.id },
+      select: { id: true },
+    });
+
+    const termIds = terms.map((term) => term.id);
+
+    if (termIds.length === 0) {
+      return res.status(200).json({
+        success: true,
+        deleted: 0,
+        categorySlug: category.slug,
+        message: 'В выбранной категории нет терминов',
+      });
+    }
+
+    const result = await prisma.userTermProgress.deleteMany({
+      where: {
+        userId,
+        termId: { in: termIds },
+      },
+    });
+
+    return res.status(200).json({
+      success: true,
+      deleted: result.count,
+      categorySlug: category.slug,
+      message: `Сброшено ${result.count} терминов по теме ${category.title}`,
+    });
+  } catch (error) {
+    console.error('Ошибка при сбросе прогресса глоссария по теме:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Внутренняя ошибка сервера',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+}
+
+module.exports = {
+  getGlossaryProgress,
+  saveGlossaryProgress,
+  clearGlossaryProgress,
+  clearGlossaryProgressByCategory,
+};

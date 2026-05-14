@@ -1,204 +1,540 @@
-# API Testing (кратко)
-
-## 1) Запуск
-
-```powershell
-Set-Location "C:\Users\Tuchka\Desktop\Тренажёр по обществознанию\mobile-app\backend"
-npm run dev
-```
-
-Важно: копируй только команды, без префикса приглашения вида `PS C:\...>`.
+# API Testing
 
 Сервер: `http://localhost:3000`
 
-## 2) Остановка
+Ниже у каждого эндпоинта один формат:
+- запрос
+- body, если нужен
+- правильный ответ
 
-Если сервер запущен в текущем окне терминала:
+---
 
-- Нажми `Ctrl + C`
+## 1. Health
 
-Если сервер запущен в фоне и `Ctrl + C` не помогает:
+### Проверка сервера
 
-```powershell
-$connections = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue
-if ($connections) {
-  $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique | Where-Object { $_ -ne 0 }
-  $pids | ForEach-Object { Stop-Process -Id $_ -Force }
+Запрос:
+`GET http://localhost:3000/health`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "message": "Backend is running"
 }
 ```
 
-## 3) Проверка health
+---
 
-```bash
-Invoke-RestMethod http://localhost:3000/health
-```
+## 2. Auth
 
-Если команда не отвечает, сначала проверь, что сервер запущен в этом же каталоге: `npm run dev`.
+### Регистрация
 
-Быстрый вариант одной командой (запуск + health + остановка):
+Запрос:
+`POST http://localhost:3000/api/auth/register`
 
-```powershell
-Start-Job -ScriptBlock { Set-Location "C:\Users\Tuchka\Desktop\Тренажёр по обществознанию\mobile-app\backend"; npm run dev }; Start-Sleep -Seconds 8; Invoke-RestMethod -Uri http://localhost:3000/health; Get-Job | Stop-Job; Get-Job | Remove-Job
-```
-
-## 4) Регистрация
-
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ivan@example.com","password":"password123","name":"Иван","lastName":"Петров"}'
-```
-
-Ожидается: `201` и `success: true`.
-
-## 5) Вход
-
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"ivan@example.com","password":"password123"}'
-```
-
-Ожидается: `200` и `success: true`.
-
-## 6) Быстрые проверки ошибок
-
-- Короткий пароль при регистрации: ожидается `400`.
-- Повторная регистрация того же email: ожидается `409`.
-- Неверный пароль при входе: ожидается `401`.
-
-## 7) Коротко для Postman
-
-1. Создай Collection: `Backend Auth`.
-2. Добавь переменную коллекции: `baseUrl = http://localhost:3000`.
-3. Создай 3 запроса для авторизации:
-
-### Health
-
-- Method: `GET`
-- URL: `{{baseUrl}}/health`
-
-### Register
-
-- Method: `POST`
-- URL: `{{baseUrl}}/api/auth/register`
-- Headers: `Content-Type: application/json`
-- Body (raw JSON):
-
+Body:
 ```json
 {
   "email": "ivan@example.com",
-  "password": "password123",
+  "password": "123456",
   "name": "Иван",
   "lastName": "Петров"
 }
 ```
 
-Ожидается: `201`, `success: true`.
-
-### Login
-
-- Method: `POST`
-- URL: `{{baseUrl}}/api/auth/login`
-- Headers: `Content-Type: application/json`
-- Body (raw JSON):
-
+Правильный ответ `201`:
 ```json
 {
-  "email": "ivan@example.com",
-  "password": "password123"
+  "success": true,
+  "user": {
+    "id": "<uuid>",
+    "email": "ivan@example.com",
+    "name": "Иван",
+    "lastName": "Петров"
+  }
 }
 ```
 
-Ожидается: `200`, `success: true`.
+### Вход
 
-4. Добавь ещё 4 запроса для проверки категорий и терминов:
+Запрос:
+`POST http://localhost:3000/api/auth/login`
 
-### Categories
-
-- Method: `GET`
-- URL: `{{baseUrl}}/api/categories`
-
-### Category by slug
-
-- Method: `GET`
-- URL: `{{baseUrl}}/api/categories/ekonomika`
-
-### Terms
-
-- Method: `GET`
-- URL: `{{baseUrl}}/api/terms`
-
-### Terms by category
-
-- Method: `GET`
-- URL: `{{baseUrl}}/api/terms?categorySlug=ekonomika`
-
-### New terms only
-
-- Method: `GET`
-- URL: `{{baseUrl}}/api/terms?isNew=true`
-
-Для удобства в Postman можно назвать их так:
-
-- `GET Health`
-- `POST Register`
-- `POST Login`
-- `GET Categories`
-- `GET Category By Slug`
-- `GET Terms`
-- `GET Terms By Category`
-- `GET New Terms`
-
-## 8) Проверка категорий и терминов
-
-### Список категорий
-
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/api/categories" -Method GET
+Body:
+```json
+{
+  "email": "1",
+  "password": "1"
+}
 ```
 
-Ожидается: `200`, список из 4 категорий и поле `_count.terms` у каждой.
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "user": {
+    "id": "1f501552-69ea-4c1d-8e76-23bef11163af",
+    "email": "1",
+    "name": "Иван",
+    "lastName": "Петров"
+  }
+}
+```
+
+---
+
+## 3. Categories
+
+### Все категории
+
+Запрос:
+`GET http://localhost:3000/api/categories`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "<uuid>",
+      "slug": "ekonomika",
+      "title": "Экономика",
+      "color": "#...",
+      "_count": {
+        "terms": 100,
+        "questions": 0
+      }
+    }
+  ]
+}
+```
 
 ### Категория по slug
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/api/categories/ekonomika" -Method GET
+Запрос:
+`GET http://localhost:3000/api/categories/ekonomika`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "<uuid>",
+    "slug": "ekonomika",
+    "title": "Экономика",
+    "color": "#..."
+  }
+}
 ```
 
-Ожидается: `200`, объект категории `Экономика`.
+---
+
+## 4. Terms
 
 ### Все термины
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/api/terms" -Method GET
-```
+Запрос:
+`GET http://localhost:3000/api/terms`
 
-Ожидается: `200`, `total: 400`.
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "<termId>",
+      "term": "...",
+      "definition": "...",
+      "isNew": false,
+      "category": {
+        "id": "<categoryId>",
+        "slug": "ekonomika",
+        "title": "Экономика",
+        "color": "#..."
+      }
+    }
+  ],
+  "total": 400
+}
+```
 
 ### Термины по категории
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/api/terms?categorySlug=ekonomika" -Method GET
-```
+Запрос:
+`GET http://localhost:3000/api/terms?categorySlug=ekonomika`
 
-Ожидается: `200`, `total: 100`, и все термины с категорией `Экономика`.
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "<termId>",
+      "category": {
+        "slug": "ekonomika",
+        "title": "Экономика"
+      }
+    }
+  ],
+  "total": 100
+}
+```
 
 ### Только новые термины
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/api/terms?isNew=true" -Method GET
+Запрос:
+`GET http://localhost:3000/api/terms?isNew=true`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "<termId>",
+      "isNew": true
+    }
+  ],
+  "total": 20
+}
 ```
 
-Ожидается: `200`, `total: 20`.
+---
 
-## 9) Быстрый набор проверок одной командой
+## 5. Progress / Glossary
 
-```powershell
-Invoke-RestMethod -Uri "http://localhost:3000/" -Method GET;
-Invoke-RestMethod -Uri "http://localhost:3000/health" -Method GET;
-Invoke-RestMethod -Uri "http://localhost:3000/api/categories" -Method GET;
-Invoke-RestMethod -Uri "http://localhost:3000/api/categories/ekonomika" -Method GET;
-Invoke-RestMethod -Uri "http://localhost:3000/api/terms?categorySlug=ekonomika" -Method GET;
-Invoke-RestMethod -Uri "http://localhost:3000/api/terms?isNew=true" -Method GET
+Для этих запросов нужен:
+- `userId`: `1f501552-69ea-4c1d-8e76-23bef11163af`
+- `termId` из `GET /api/terms`
+
+### Получить весь прогресс
+
+Запрос:
+`GET http://localhost:3000/api/progress/glossary?userId=1f501552-69ea-4c1d-8e76-23bef11163af`
+
+Правильный ответ `200`, если прогресс пустой:
+```json
+{
+  "success": true,
+  "data": [],
+  "total": 0
+}
 ```
+
+### Сохранить выученные термины
+
+Запрос:
+`POST http://localhost:3000/api/progress/glossary`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "termIds": ["<termId1>", "<termId2>"]
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "saved": 2,
+  "message": "Сохранено 2 новых терминов"
+}
+```
+
+Если отправить те же `termIds` ещё раз, правильный ответ такой:
+```json
+{
+  "success": true,
+  "saved": 0,
+  "message": "Сохранено 0 новых терминов"
+}
+```
+
+### Сбросить весь прогресс
+
+Запрос:
+`DELETE http://localhost:3000/api/progress/glossary`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af"
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "deleted": 2,
+  "message": "Сброшено 2 терминов"
+}
+```
+
+### Сбросить прогресс по одной теме
+
+Запрос:
+`DELETE http://localhost:3000/api/progress/glossary/category`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "categorySlug": "ekonomika"
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "deleted": 2,
+  "categorySlug": "ekonomika",
+  "message": "Сброшено 2 терминов по теме Экономика"
+}
+```
+
+---
+
+## 6. Ошибки
+
+### Невалидный userId
+
+Запрос:
+`GET http://localhost:3000/api/progress/glossary?userId=не-uuid`
+
+Правильный ответ `400`:
+```json
+{
+  "success": false,
+  "message": "userId обязателен и должен быть валидным UUID"
+}
+```
+
+### Несуществующий userId
+
+Запрос:
+`POST http://localhost:3000/api/progress/glossary`
+
+Body:
+```json
+{
+  "userId": "00000000-0000-0000-0000-000000000000",
+  "termIds": ["00000000-0000-0000-0000-000000000001"]
+}
+```
+
+Правильный ответ `404`:
+```json
+{
+  "success": false,
+  "message": "Пользователь не найден"
+}
+```
+
+### Несуществующая категория при сбросе по теме
+
+Запрос:
+`DELETE http://localhost:3000/api/progress/glossary/category`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "categorySlug": "unknown-category"
+}
+```
+
+Правильный ответ `404`:
+```json
+{
+  "success": false,
+  "message": "Категория не найдена"
+}
+```
+
+### Email уже занят
+
+Запрос:
+`POST http://localhost:3000/api/auth/register`
+
+Body:
+```json
+{
+  "email": "ivan@example.com",
+  "password": "123456",
+  "name": "Иван"
+}
+```
+
+Правильный ответ `409`:
+```json
+{
+  "success": false,
+  "message": "Пользователь с таким email уже существует"
+}
+```
+
+### Неверный пароль
+
+Запрос:
+`POST http://localhost:3000/api/auth/login`
+
+Body:
+```json
+{
+  "email": "1",
+  "password": "wrong-password"
+}
+```
+
+Правильный ответ `401`:
+```json
+{
+  "success": false,
+  "message": "Неверный email или пароль"
+}
+```
+
+### Слишком короткий пароль
+
+Запрос:
+`POST http://localhost:3000/api/auth/register`
+
+Body:
+```json
+{
+  "email": "short@test.com",
+  "password": "123",
+  "name": "Тест"
+}
+```
+
+Правильный ответ `400`:
+```json
+{
+  "success": false,
+  "message": "Пароль должен содержать минимум 6 символов"
+}
+```
+
+---
+
+## 7. Данные для ручного теста прогресса по теме
+
+### Шаг 1. Получить userId
+
+Сначала зарегистрируй пользователя:
+
+Запрос:
+`POST http://localhost:3000/api/auth/register`
+
+Body:
+```json
+{
+  "email": "ivan@example.com",
+  "password": "123456",
+  "name": "Иван",
+  "lastName": "Петров"
+}
+```
+
+Для уже существующего тестового пользователя используй логин:
+
+Запрос:
+`POST http://localhost:3000/api/auth/login`
+
+Body:
+```json
+{
+  "email": "1",
+  "password": "1"
+}
+```
+
+Из ответа возьми:
+```json
+{
+  "user": {
+    "id": "1f501552-69ea-4c1d-8e76-23bef11163af"
+  }
+}
+```
+
+### Шаг 2. Получить termId одной темы
+
+Запрос:
+`GET http://localhost:3000/api/terms?categorySlug=ekonomika`
+
+Из ответа возьми 2 любых `id`:
+```json
+{
+  "data": [
+    { "id": "<termId1>" },
+    { "id": "<termId2>" }
+  ]
+}
+```
+
+### Шаг 3. Сохранить прогресс по теме
+
+Запрос:
+`POST http://localhost:3000/api/progress/glossary`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "termIds": ["<termId1>", "<termId2>"]
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "saved": 2,
+  "message": "Сохранено 2 новых терминов"
+}
+```
+
+### Шаг 4. Сбросить только тему
+
+Запрос:
+`DELETE http://localhost:3000/api/progress/glossary/category`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "categorySlug": "ekonomika"
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "deleted": 2,
+  "categorySlug": "ekonomika",
+  "message": "Сброшено 2 терминов по теме Экономика"
+}
+```
+
+### Шаг 5. Проверить остаток прогресса
+
+Запрос:
+`GET http://localhost:3000/api/progress/glossary?userId=1f501552-69ea-4c1d-8e76-23bef11163af`
+
+Если у пользователя были выучены только эти 2 термина, правильный ответ:
+```json
+{
+  "success": true,
+  "data": [],
+  "total": 0
+}
+```
+
