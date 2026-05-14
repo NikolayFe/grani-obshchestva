@@ -111,7 +111,10 @@ export default function CategoryTopicScreen({ route, navigation }: any) {
               <Text style={styles.testsSubtitle}>Проверь знания и получи XP для перехода дальше.</Text>
             </View>
           </View>
-          <Pressable style={styles.testsButton}>
+          <Pressable
+            style={styles.testsButton}
+            onPress={() => navigation.navigate('Test', { categoryTitle: category.title, categoryColor: category.color })}
+          >
             <Text style={styles.testsButtonText}>Начать тестирование</Text>
             <Ionicons name="arrow-forward" size={14} color={category.color} />
           </Pressable>

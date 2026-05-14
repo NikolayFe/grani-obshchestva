@@ -83,6 +83,36 @@ export default function CategoriesScreen({ navigation }: any) {
           Выберите категорию, чтобы продолжить обучение.
         </Text>
 
+        <Pressable
+          style={styles.dailyCard}
+          onPress={() =>
+            navigation.navigate('Test', {
+              testMode: 'daily',
+              categoryTitle: 'Ежедневный тест',
+              categoryColor: '#F97316',
+            })
+          }
+        >
+          <View style={styles.dailyTopRow}>
+            <View style={styles.dailyIconWrap}>
+              <Ionicons name="flash" size={20} color="#FFFFFF" />
+            </View>
+            <View style={styles.dailyLivesWrap}>
+              <Text style={styles.dailyLivesText}>Жизни: ❤❤❤</Text>
+            </View>
+          </View>
+
+          <Text style={styles.dailyTitle}>Ежедневное тестирование</Text>
+          <Text style={styles.dailyDesc}>
+            Смешанный тест по всем категориям + вопросы по терминам из глоссария.
+          </Text>
+
+          <View style={styles.dailyButton}>
+            <Text style={styles.dailyButtonText}>Начать сейчас</Text>
+            <Ionicons name="arrow-forward" size={15} color="#F97316" />
+          </View>
+        </Pressable>
+
         <View style={styles.list}>
           {categories.map((cat) => {
             const progress = cat.terms / cat.total;
@@ -170,7 +200,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     lineHeight: 20,
-    marginBottom: 20,
+    marginBottom: 14,
+  },
+  dailyCard: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    padding: 16,
+    marginBottom: 16,
+  },
+  dailyTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 10,
+  },
+  dailyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: '#F97316',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailyLivesWrap: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  dailyLivesText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#C2410C',
+  },
+  dailyTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#7C2D12',
+    marginBottom: 4,
+  },
+  dailyDesc: {
+    fontSize: 13,
+    color: '#9A3412',
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  dailyButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  dailyButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#EA580C',
   },
   list: {
     gap: 14,

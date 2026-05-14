@@ -39,3 +39,5 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+otchet_o_vypolnennom.md
