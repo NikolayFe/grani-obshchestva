@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TextInput, ScrollView, Pressable } from 'react-
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { getTerms } from '../api/contentApi';
+import { useGlossary } from '../contexts/GlossaryContext';
 
 const filters = ['Все', 'Экономика', 'Право', 'Конституция', 'Социология'];
 
@@ -36,8 +37,9 @@ export default function GlossaryScreen({ route }: any) {
   const [activeFilter, setActiveFilter] = useState('Все');
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
-  const [knownTermIds, setKnownTermIds] = useState<string[]>([]);
   const [errorText, setErrorText] = useState('');
+  
+  const { knownTermIds, addKnownTerm, clearKnownTerms } = useGlossary();
 
   useEffect(() => {
     let mounted = true;
@@ -45,6 +47,7 @@ export default function GlossaryScreen({ route }: any) {
     const loadTerms = async () => {
       try {
         setErrorText('');
+        
         const response = await getTerms();
 
         if (!mounted) return;
@@ -89,7 +92,7 @@ export default function GlossaryScreen({ route }: any) {
         item.definition.toLowerCase().includes(normalizedSearch);
       return byCategory && bySearch;
     });
-  }, [activeFilter, normalizedSearch]);
+  }, [glossaryCards, activeFilter, normalizedSearch]);
 
   const dailyCards = useMemo(() => {
     return filteredCards.filter((item) => !knownTermIds.includes(item.id));
@@ -98,11 +101,16 @@ export default function GlossaryScreen({ route }: any) {
   useEffect(() => {
     setCurrentCardIndex(0);
     setIsFlipped(false);
-  }, [activeFilter, search]);
+  }, [activeFilter, search, glossaryCards]);
 
   const safeCardIndex =
     dailyCards.length === 0 ? 0 : Math.min(currentCardIndex, dailyCards.length - 1);
   const dailyCard = dailyCards[safeCardIndex] ?? null;
+
+  // Правильный счётчик на основе полного списка filteredCards
+  const passedInFilter = filteredCards.filter((card) => knownTermIds.includes(card.id)).length;
+  const currentPosition = passedInFilter + safeCardIndex + 1;
+  const counterDisplay = dailyCards.length === 0 ? '0/0' : `${currentPosition}/${filteredCards.length}`;
 
   const newTerms = useMemo(() => {
     return dailyCards.filter((item) => item.isNew);
@@ -111,7 +119,32 @@ export default function GlossaryScreen({ route }: any) {
   const handleKnowCard = () => {
     if (!dailyCard) return;
 
-    setKnownTermIds((prev) => (prev.includes(dailyCard.id) ? prev : [...prev, dailyCard.id]));
+    const isLastCard = currentCardIndex >= dailyCards.length - 1;
+
+    if (isLastCard) {
+      // Если это последняя карточка, начинаем повторение
+      clearKnownTerms();
+      setCurrentCardIndex(0);
+      setIsFlipped(false);
+    } else {
+      // Обычное перемещение на следующую карточку
+      if (dailyCard.id && !knownTermIds.includes(dailyCard.id)) {
+        addKnownTerm(dailyCard.id);
+      }
+      setIsFlipped(false);
+      setCurrentCardIndex(currentCardIndex + 1);
+    }
+  };
+
+  const handleLater = () => {
+    // Переходим на следующую карточку без отметки как "Знаю"
+    if (currentCardIndex < dailyCards.length - 1) {
+      setCurrentCardIndex(currentCardIndex + 1);
+    } else {
+      // Если это последняя карточка, переходим на повторение
+      clearKnownTerms();
+      setCurrentCardIndex(0);
+    }
     setIsFlipped(false);
   };
 
@@ -164,7 +197,7 @@ export default function GlossaryScreen({ route }: any) {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Карточка дня</Text>
           <Text style={styles.sectionCounter}>
-            {dailyCards.length === 0 ? '0/0' : `${safeCardIndex + 1}/${dailyCards.length}`}
+            {counterDisplay}
           </Text>
         </View>
 
@@ -193,7 +226,7 @@ export default function GlossaryScreen({ route }: any) {
             <View style={styles.actionsRow}>
               <Pressable
                 style={[styles.actionBtn, styles.actionMuted]}
-                onPress={() => setIsFlipped(false)}
+                onPress={handleLater}
               >
                 <View style={styles.actionIconWrapMuted}>
                   <Ionicons name="time-outline" size={14} color={colors.neutral.dark} />

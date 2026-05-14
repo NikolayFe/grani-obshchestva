@@ -3,7 +3,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { getCategories } from '../api/contentApi';
+import { getCategories, getTerms } from '../api/contentApi';
+import { useGlossary } from '../contexts/GlossaryContext';
 
 const categoryUiMeta: Record<
   string,
@@ -11,32 +12,27 @@ const categoryUiMeta: Record<
     description: string;
     icon: 'scale' | 'trending-up' | 'document-text' | 'people';
     bg: string;
-    mockProgressTerms: number;
   }
 > = {
   'grazhdanskoe-pravo': {
     description: 'Основы норм правовой системы и гражданских прав.',
     icon: 'scale',
     bg: '#F5EAFF',
-    mockProgressTerms: 14,
   },
   ekonomika: {
     description: 'Основы микро и макроэкономики, рыночные механизмы.',
     icon: 'trending-up',
     bg: '#E8FAF0',
-    mockProgressTerms: 8,
   },
   konstituciya: {
     description: 'Главный акт государства, права и свободы.',
     icon: 'document-text',
     bg: '#EBEBFF',
-    mockProgressTerms: 40,
   },
   sociologiya: {
     description: 'Социальные группы, статусы, роли и общественные процессы.',
     icon: 'people',
     bg: '#FFF8E0',
-    mockProgressTerms: 0,
   },
 };
 
@@ -57,27 +53,35 @@ function ProgressBar({ progress, color, bg }: { progress: number; color: string;
 export default function CategoriesScreen({ navigation }: any) {
   const [categories, setCategories] = useState<any[]>([]);
   const [errorText, setErrorText] = useState('');
+  const [allTerms, setAllTerms] = useState<any[]>([]);
+  
+  const { knownTermIds } = useGlossary();
 
   useEffect(() => {
     let mounted = true;
 
-    const loadCategories = async () => {
+    const loadData = async () => {
       try {
         setErrorText('');
-        const response = await getCategories();
+        
+        // Загружаем категории
+        const categories = await getCategories();
+        
+        // Загружаем все термины
+        const terms = await getTerms();
 
         if (!mounted) return;
 
-        const mapped = response.map((item) => {
+        setAllTerms(terms);
+
+        const mapped = categories.map((item) => {
           const meta = categoryUiMeta[item.slug] || {
             description: 'Учебная категория',
             icon: 'document-text' as const,
             bg: '#F3F4F6',
-            mockProgressTerms: 0,
           };
 
           const total = item._count?.terms ?? 0;
-          const terms = Math.min(meta.mockProgressTerms, total);
 
           return {
             id: item.id,
@@ -86,9 +90,9 @@ export default function CategoriesScreen({ navigation }: any) {
             icon: meta.icon,
             color: item.color,
             bg: meta.bg,
-            terms,
             total,
             slug: item.slug,
+            categoryId: item.id,
           };
         });
 
@@ -99,7 +103,7 @@ export default function CategoriesScreen({ navigation }: any) {
       }
     };
 
-    loadCategories();
+    loadData();
 
     return () => {
       mounted = false;
@@ -167,7 +171,20 @@ export default function CategoriesScreen({ navigation }: any) {
           )}
 
           {categories.map((cat) => {
-            const progress = cat.terms / cat.total;
+            // Считаем сколько терминов из этой категории пользователь уже знает
+            const categoryTerms = allTerms.filter(
+              (term) => term.categoryId === cat.categoryId
+            );
+            
+            const knownInCategory = categoryTerms.filter(
+              (term) => knownTermIds.includes(term.id)
+            ).length;
+            
+            // Прогресс: на основе известных терминов
+            const totalProgress = categoryTerms.length > 0 
+              ? knownInCategory / categoryTerms.length 
+              : 0;
+            
             return (
               <Pressable
                 key={cat.id}
@@ -180,7 +197,7 @@ export default function CategoriesScreen({ navigation }: any) {
                   </View>
                   <View style={styles.cardMeta}>
                     <Text style={[styles.cardTerms, { color: cat.color }]}>
-                      {cat.terms}/{cat.total} терминов
+                      {knownInCategory}/{cat.total} терминов
                     </Text>
                     <Ionicons name="chevron-forward" size={16} color={cat.color} />
                   </View>
@@ -189,7 +206,7 @@ export default function CategoriesScreen({ navigation }: any) {
                 <Text style={styles.cardTitle}>{cat.title}</Text>
                 <Text style={styles.cardDesc}>{cat.description}</Text>
 
-                <ProgressBar progress={progress} color={cat.color} bg={cat.bg} />
+                <ProgressBar progress={totalProgress} color={cat.color} bg={cat.bg} />
               </Pressable>
             );
           })}
