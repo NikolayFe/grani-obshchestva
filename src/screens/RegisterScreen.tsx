@@ -1,9 +1,10 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { AuthContext } from '../navigation/AuthContext';
+import { loginRequest, registerRequest } from '../api/authApi';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -11,24 +12,80 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showNameFields, setShowNameFields] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorText, setErrorText] = useState('');
   const { signIn } = React.useContext(AuthContext);
 
-  const handleCreateAccountPress = () => {
+  const handleCreateAccountPress = async () => {
+    setErrorText('');
+
     if (!showNameFields) {
       setShowNameFields(true);
       return;
     }
 
-    signIn();
+    if (!firstName.trim() || !email.trim() || !password.trim()) {
+      setErrorText('Заполните имя, email и пароль.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await registerRequest({
+        name: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim(),
+        password: password.trim(),
+      });
+      signIn();
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Не удалось создать аккаунт');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleBackPress = () => {
+    setErrorText('');
     setShowNameFields(false);
   };
 
+  const handleLoginPress = async () => {
+    if (showNameFields) {
+      handleBackPress();
+      return;
+    }
+
+    setErrorText('');
+
+    if (!email.trim() || !password.trim()) {
+      setErrorText('Введите email и пароль для входа.');
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await loginRequest({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      signIn();
+    } catch (error) {
+      setErrorText(error instanceof Error ? error.message : 'Не удалось выполнить вход');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.screen}
+    >
+      <SafeAreaView style={styles.screen}>
+        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={styles.logoCircle}>
             <Ionicons name="book" size={26} color={colors.text.light} />
@@ -105,26 +162,34 @@ export default function RegisterScreen() {
           />
 
           <Pressable style={styles.registerButton} onPress={handleCreateAccountPress}>
-            <Text style={styles.registerButtonText}>
-              {showNameFields ? 'Подтвердить и войти' : 'Создать аккаунт'}
-            </Text>
+            {isSubmitting ? (
+              <ActivityIndicator color={colors.text.light} />
+            ) : (
+              <Text style={styles.registerButtonText}>
+                {showNameFields ? 'Подтвердить и войти' : 'Создать аккаунт'}
+              </Text>
+            )}
           </Pressable>
 
           <Pressable 
-            style={showNameFields ? styles.backButton : styles.loginGhostButton} 
-            onPress={showNameFields ? handleBackPress : signIn}
+            style={showNameFields ? styles.backButton : styles.loginGhostButton}
+            onPress={handleLoginPress}
+            disabled={isSubmitting}
           >
             <Text style={showNameFields ? styles.backButtonText : styles.loginGhostText}>
               {showNameFields ? 'Назад' : 'Войти'}
             </Text>
           </Pressable>
+
+          {!!errorText && <Text style={styles.errorText}>{errorText}</Text>}
         </View>
 
         <Text style={styles.termsText}>
           Нажимая кнопку, вы соглашаетесь с Условиями использования и Политикой конфиденциальности.
         </Text>
       </ScrollView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -248,6 +313,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: colors.text.secondary,
+  },
+  errorText: {
+    marginTop: 10,
+    color: '#B42318',
+    fontSize: 13,
+    textAlign: 'center',
   },
   termsText: {
     textAlign: 'center',

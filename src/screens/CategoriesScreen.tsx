@@ -1,51 +1,44 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { getCategories } from '../api/contentApi';
 
-const categories = [
+const categoryUiMeta: Record<
+  string,
   {
-    id: 1,
-    title: 'Гражданское право',
+    description: string;
+    icon: 'scale' | 'trending-up' | 'document-text' | 'people';
+    bg: string;
+    mockProgressTerms: number;
+  }
+> = {
+  'grazhdanskoe-pravo': {
     description: 'Основы норм правовой системы и гражданских прав.',
-    icon: 'scale' as const,
-    color: colors.primary.main,
+    icon: 'scale',
     bg: '#F5EAFF',
-    terms: 14,
-    total: 50,
+    mockProgressTerms: 14,
   },
-  {
-    id: 2,
-    title: 'Экономика',
+  ekonomika: {
     description: 'Основы микро и макроэкономики, рыночные механизмы.',
-    icon: 'trending-up' as const,
-    color: colors.secondary.main,
+    icon: 'trending-up',
     bg: '#E8FAF0',
-    terms: 8,
-    total: 50,
+    mockProgressTerms: 8,
   },
-  {
-    id: 3,
-    title: 'Конституция',
+  konstituciya: {
     description: 'Главный акт государства, права и свободы.',
-    icon: 'document-text' as const,
-    color: '#5B5BD6',
+    icon: 'document-text',
     bg: '#EBEBFF',
-    terms: 40,
-    total: 50,
+    mockProgressTerms: 40,
   },
-  {
-    id: 4,
-    title: 'Социология',
+  sociologiya: {
     description: 'Социальные группы, статусы, роли и общественные процессы.',
-    icon: 'people' as const,
-    color: colors.tertiary.main,
+    icon: 'people',
     bg: '#FFF8E0',
-    terms: 0,
-    total: 50,
+    mockProgressTerms: 0,
   },
-];
+};
 
 function ProgressBar({ progress, color, bg }: { progress: number; color: string; bg: string }) {
   return (
@@ -62,6 +55,59 @@ function ProgressBar({ progress, color, bg }: { progress: number; color: string;
 }
 
 export default function CategoriesScreen({ navigation }: any) {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [errorText, setErrorText] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadCategories = async () => {
+      try {
+        setErrorText('');
+        const response = await getCategories();
+
+        if (!mounted) return;
+
+        const mapped = response.map((item) => {
+          const meta = categoryUiMeta[item.slug] || {
+            description: 'Учебная категория',
+            icon: 'document-text' as const,
+            bg: '#F3F4F6',
+            mockProgressTerms: 0,
+          };
+
+          const total = item._count?.terms ?? 0;
+          const terms = Math.min(meta.mockProgressTerms, total);
+
+          return {
+            id: item.id,
+            title: item.title,
+            description: meta.description,
+            icon: meta.icon,
+            color: item.color,
+            bg: meta.bg,
+            terms,
+            total,
+            slug: item.slug,
+          };
+        });
+
+        setCategories(mapped);
+      } catch (error: any) {
+        if (!mounted) return;
+        setErrorText(error?.message || 'Не удалось загрузить категории');
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const hasCategories = useMemo(() => categories.length > 0, [categories.length]);
+
   return (
     <SafeAreaView style={styles.screen}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -114,6 +160,12 @@ export default function CategoriesScreen({ navigation }: any) {
         </Pressable>
 
         <View style={styles.list}>
+          {errorText.length > 0 && <Text style={styles.errorText}>{errorText}</Text>}
+
+          {!hasCategories && errorText.length === 0 && (
+            <Text style={styles.emptyText}>Загрузка категорий...</Text>
+          )}
+
           {categories.map((cat) => {
             const progress = cat.terms / cat.total;
             return (
@@ -151,6 +203,16 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#B42318',
+    marginBottom: 10,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: 10,
   },
   container: {
     paddingHorizontal: 16,

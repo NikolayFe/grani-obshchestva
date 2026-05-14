@@ -3,71 +3,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
+import { getTerms } from '../api/contentApi';
 
 const filters = ['Все', 'Экономика', 'Право', 'Конституция', 'Социология'];
 
-const glossaryCards = [
-  {
-    id: 1,
-    term: 'Инфляция',
-    definition: 'Устойчивый рост общего уровня цен, снижающий покупательную способность денег.',
-    category: 'Экономика',
-    isNew: true,
-  },
-  {
-    id: 2,
-    term: 'ВВП',
-    definition: 'Совокупная стоимость всех конечных товаров и услуг, произведенных в стране за год.',
-    category: 'Экономика',
-    isNew: false,
-  },
-  {
-    id: 3,
-    term: 'Правоспособность',
-    definition: 'Способность лица иметь гражданские права и нести обязанности.',
-    category: 'Право',
-    isNew: true,
-  },
-  {
-    id: 4,
-    term: 'Договор',
-    definition: 'Соглашение двух или более лиц об установлении, изменении или прекращении прав и обязанностей.',
-    category: 'Право',
-    isNew: false,
-  },
-  {
-    id: 5,
-    term: 'Суверенитет',
-    definition: 'Верховная власть государства на своей территории и независимость во внешних отношениях.',
-    category: 'Конституция',
-    isNew: true,
-  },
-  {
-    id: 6,
-    term: 'Федерация',
-    definition: 'Форма государственного устройства, при которой части страны имеют определенную самостоятельность.',
-    category: 'Конституция',
-    isNew: false,
-  },
-  {
-    id: 7,
-    term: 'Стратификация',
-    definition: 'Разделение общества на социальные группы по доходу, образованию, престижу и власти.',
-    category: 'Социология',
-    isNew: true,
-  },
-  {
-    id: 8,
-    term: 'Социализация',
-    definition: 'Процесс усвоения человеком социальных норм, ценностей и моделей поведения.',
-    category: 'Социология',
-    isNew: false,
-  },
-];
+type GlossaryCard = {
+  id: string;
+  term: string;
+  definition: string;
+  category: string;
+  isNew: boolean;
+};
 
 const categoryColors: Record<string, string> = {
   'Экономика': colors.secondary.main,
   'Право': colors.primary.main,
+  'Гражданское право': colors.primary.main,
   'Конституция': '#5B5BD6',
   'Социология': colors.tertiary.main,
 };
@@ -80,10 +31,45 @@ function normalizeIncomingFilter(value: string) {
 }
 
 export default function GlossaryScreen({ route }: any) {
+  const [glossaryCards, setGlossaryCards] = useState<GlossaryCard[]>([]);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState('Все');
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [knownTermIds, setKnownTermIds] = useState<string[]>([]);
+  const [errorText, setErrorText] = useState('');
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadTerms = async () => {
+      try {
+        setErrorText('');
+        const response = await getTerms();
+
+        if (!mounted) return;
+
+        const mapped: GlossaryCard[] = response.map((item) => ({
+          id: item.id,
+          term: item.term,
+          definition: item.definition,
+          category: item.category.title === 'Гражданское право' ? 'Право' : item.category.title,
+          isNew: item.isNew,
+        }));
+
+        setGlossaryCards(mapped);
+      } catch (error: any) {
+        if (!mounted) return;
+        setErrorText(error?.message || 'Не удалось загрузить термины');
+      }
+    };
+
+    loadTerms();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const initialFilter = route?.params?.initialFilter;
@@ -105,22 +91,27 @@ export default function GlossaryScreen({ route }: any) {
     });
   }, [activeFilter, normalizedSearch]);
 
+  const dailyCards = useMemo(() => {
+    return filteredCards.filter((item) => !knownTermIds.includes(item.id));
+  }, [filteredCards, knownTermIds]);
+
   useEffect(() => {
     setCurrentCardIndex(0);
     setIsFlipped(false);
   }, [activeFilter, search]);
 
   const safeCardIndex =
-    filteredCards.length === 0 ? 0 : Math.min(currentCardIndex, filteredCards.length - 1);
-  const dailyCard = filteredCards[safeCardIndex] ?? null;
+    dailyCards.length === 0 ? 0 : Math.min(currentCardIndex, dailyCards.length - 1);
+  const dailyCard = dailyCards[safeCardIndex] ?? null;
 
   const newTerms = useMemo(() => {
-    return filteredCards.filter((item) => item.isNew);
-  }, [filteredCards]);
+    return dailyCards.filter((item) => item.isNew);
+  }, [dailyCards]);
 
-  const handleNextCard = () => {
-    if (filteredCards.length === 0) return;
-    setCurrentCardIndex((prev) => (prev + 1) % filteredCards.length);
+  const handleKnowCard = () => {
+    if (!dailyCard) return;
+
+    setKnownTermIds((prev) => (prev.includes(dailyCard.id) ? prev : [...prev, dailyCard.id]));
     setIsFlipped(false);
   };
 
@@ -168,14 +159,16 @@ export default function GlossaryScreen({ route }: any) {
       </ScrollView>
 
       <ScrollView contentContainerStyle={styles.list}>
+        {errorText.length > 0 && <Text style={styles.errorText}>{errorText}</Text>}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Карточка дня</Text>
           <Text style={styles.sectionCounter}>
-            {filteredCards.length === 0 ? '0/0' : `${safeCardIndex + 1}/${filteredCards.length}`}
+            {dailyCards.length === 0 ? '0/0' : `${safeCardIndex + 1}/${dailyCards.length}`}
           </Text>
         </View>
 
-        {filteredCards.length === 0 || !dailyCard ? (
+        {dailyCards.length === 0 || !dailyCard ? (
           <Text style={styles.emptyText}>По вашему запросу ничего не найдено.</Text>
         ) : (
           <>
@@ -198,7 +191,10 @@ export default function GlossaryScreen({ route }: any) {
             </Pressable>
 
             <View style={styles.actionsRow}>
-              <Pressable style={[styles.actionBtn, styles.actionMuted]} onPress={handleNextCard}>
+              <Pressable
+                style={[styles.actionBtn, styles.actionMuted]}
+                onPress={() => setIsFlipped(false)}
+              >
                 <View style={styles.actionIconWrapMuted}>
                   <Ionicons name="time-outline" size={14} color={colors.neutral.dark} />
                 </View>
@@ -210,7 +206,7 @@ export default function GlossaryScreen({ route }: any) {
                 </View>
                 <Text style={styles.actionPrimaryText}>Повторить</Text>
               </Pressable>
-              <Pressable style={[styles.actionBtn, styles.actionSuccess]} onPress={handleNextCard}>
+              <Pressable style={[styles.actionBtn, styles.actionSuccess]} onPress={handleKnowCard}>
                 <View style={styles.actionIconWrapSuccess}>
                   <Ionicons name="checkmark" size={14} color="#0D8F45" />
                 </View>
@@ -551,5 +547,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text.secondary,
     marginTop: 18,
+  },
+  errorText: {
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#B42318',
+    marginTop: 8,
   },
 });
