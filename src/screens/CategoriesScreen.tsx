@@ -173,17 +173,19 @@ export default function CategoriesScreen({ navigation }: any) {
           {categories.map((cat) => {
             // Считаем сколько терминов из этой категории пользователь уже знает
             const categoryTerms = allTerms.filter(
-              (term) => term.categoryId === cat.categoryId
+              (term) => term.category.id === cat.categoryId
             );
             
             const knownInCategory = categoryTerms.filter(
               (term) => knownTermIds.includes(term.id)
             ).length;
             
-            // Прогресс: на основе известных терминов
-            const totalProgress = categoryTerms.length > 0 
-              ? knownInCategory / categoryTerms.length 
+            // Прогресс: 50% от глоссария (выученные карточки) + 50% от теста
+            const glossaryProgress = categoryTerms.length > 0 
+              ? (knownInCategory / categoryTerms.length) * 0.5
               : 0;
+            const testProgress = 0; // TODO: добавить результаты теста
+            const totalProgress = glossaryProgress + testProgress;
             
             return (
               <Pressable

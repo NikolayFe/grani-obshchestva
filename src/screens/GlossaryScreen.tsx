@@ -98,19 +98,32 @@ export default function GlossaryScreen({ route }: any) {
     return filteredCards.filter((item) => !knownTermIds.includes(item.id));
   }, [filteredCards, knownTermIds]);
 
+  // Режим повторения: если все карточки выучены, показываем их заново
+  const isRepetitionMode = dailyCards.length === 0 && filteredCards.length > 0;
+  const cardsToShow = isRepetitionMode ? filteredCards : dailyCards;
+
   useEffect(() => {
     setCurrentCardIndex(0);
     setIsFlipped(false);
   }, [activeFilter, search, glossaryCards]);
 
-  const safeCardIndex =
-    dailyCards.length === 0 ? 0 : Math.min(currentCardIndex, dailyCards.length - 1);
-  const dailyCard = dailyCards[safeCardIndex] ?? null;
+  // Когда переходим в режим повторения, сбрасываем индекс
+  useEffect(() => {
+    if (isRepetitionMode) {
+      setCurrentCardIndex(0);
+    }
+  }, [isRepetitionMode]);
 
-  // Правильный счётчик на основе полного списка filteredCards
-  const passedInFilter = filteredCards.filter((card) => knownTermIds.includes(card.id)).length;
-  const currentPosition = passedInFilter + safeCardIndex + 1;
-  const counterDisplay = dailyCards.length === 0 ? '0/0' : `${currentPosition}/${filteredCards.length}`;
+  const safeCardIndex =
+    cardsToShow.length === 0 ? 0 : Math.min(currentCardIndex, cardsToShow.length - 1);
+  const dailyCard = cardsToShow[safeCardIndex] ?? null;
+
+  // Счётчик для режима повторения: все карточки считаются как при повторении
+  const counterDisplay = isRepetitionMode 
+    ? `${safeCardIndex + 1}/${cardsToShow.length}`
+    : cardsToShow.length === 0 
+      ? '0/0' 
+      : `${safeCardIndex + 1}/${cardsToShow.length}`;
 
   const newTerms = useMemo(() => {
     return dailyCards.filter((item) => item.isNew);
@@ -119,16 +132,18 @@ export default function GlossaryScreen({ route }: any) {
   const handleKnowCard = () => {
     if (!dailyCard) return;
 
-    const isLastCard = currentCardIndex >= dailyCards.length - 1;
+    const isLastCard = currentCardIndex >= cardsToShow.length - 1;
 
     if (isLastCard) {
-      // Если это последняя карточка, начинаем повторение
-      clearKnownTerms();
+      // На последней карточке: добавляем её и переходим на первую
+      if (!isRepetitionMode && dailyCard.id && !knownTermIds.includes(dailyCard.id)) {
+        addKnownTerm(dailyCard.id);
+      }
       setCurrentCardIndex(0);
       setIsFlipped(false);
     } else {
       // Обычное перемещение на следующую карточку
-      if (dailyCard.id && !knownTermIds.includes(dailyCard.id)) {
+      if (!isRepetitionMode && dailyCard.id && !knownTermIds.includes(dailyCard.id)) {
         addKnownTerm(dailyCard.id);
       }
       setIsFlipped(false);
@@ -138,11 +153,10 @@ export default function GlossaryScreen({ route }: any) {
 
   const handleLater = () => {
     // Переходим на следующую карточку без отметки как "Знаю"
-    if (currentCardIndex < dailyCards.length - 1) {
+    if (currentCardIndex < cardsToShow.length - 1) {
       setCurrentCardIndex(currentCardIndex + 1);
     } else {
-      // Если это последняя карточка, переходим на повторение
-      clearKnownTerms();
+      // Если это последняя карточка, переходим на первую
       setCurrentCardIndex(0);
     }
     setIsFlipped(false);
@@ -201,7 +215,7 @@ export default function GlossaryScreen({ route }: any) {
           </Text>
         </View>
 
-        {dailyCards.length === 0 || !dailyCard ? (
+        {cardsToShow.length === 0 || !dailyCard ? (
           <Text style={styles.emptyText}>По вашему запросу ничего не найдено.</Text>
         ) : (
           <>
