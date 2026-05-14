@@ -538,3 +538,125 @@ Body:
 }
 ```
 
+---
+
+## 8. Progress / Tests By Category
+
+Для этих запросов нужен:
+- `userId`: `1f501552-69ea-4c1d-8e76-23bef11163af`
+- `categorySlug` (например, `ekonomika`)
+- `questionId` и `selectedOptionId` из категории
+
+Важно:
+- у каждого тестового вопроса обязательно должно быть ровно `4` варианта ответа
+
+### Получить questionId и selectedOptionId
+
+Возьми `questionId` и `selectedOptionId` из текущего фронтового теста
+или через Prisma Studio (`Question` + `QuestionOption`).
+
+### Сохранить ответ пользователя
+
+Запрос:
+`POST http://localhost:3000/api/progress/tests/answer`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "questionId": "<questionId>",
+  "selectedOptionId": "<selectedOptionId>"
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "answerId": "<uuid>",
+    "isCorrect": true,
+    "answeredAt": "2026-05-14T...",
+    "categorySlug": "ekonomika",
+    "categoryTitle": "Экономика"
+  },
+  "message": "Ответ сохранён: верно"
+}
+```
+
+### Получить прогресс по одной категории
+
+Запрос:
+`GET http://localhost:3000/api/progress/tests/category?userId=1f501552-69ea-4c1d-8e76-23bef11163af&categorySlug=ekonomika`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "categorySlug": "ekonomika",
+    "categoryTitle": "Экономика",
+    "totalQuestions": 100,
+    "answeredQuestions": 12,
+    "correctAnswers": 9,
+    "progressPercent": 9
+  }
+}
+```
+
+### Получить общий прогресс тестов по всем категориям
+
+Запрос:
+`GET http://localhost:3000/api/progress/tests/summary?userId=1f501552-69ea-4c1d-8e76-23bef11163af`
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "categories": [
+      {
+        "categorySlug": "ekonomika",
+        "categoryTitle": "Экономика",
+        "totalQuestions": 100,
+        "answeredQuestions": 12,
+        "correctAnswers": 9,
+        "progressPercent": 9
+      }
+    ],
+    "totals": {
+      "totalQuestions": 400,
+      "answeredQuestions": 37,
+      "correctAnswers": 26,
+      "overallProgressPercent": 7
+    }
+  }
+}
+```
+
+### Ошибки для тестового прогресса
+
+Невалидный `userId`:
+```json
+{
+  "success": false,
+  "message": "userId обязателен и должен быть валидным UUID"
+}
+```
+
+Вопрос с некорректным количеством вариантов:
+```json
+{
+  "success": false,
+  "message": "Для тестового вопроса должно быть ровно 4 варианта ответа"
+}
+```
+
+Неизвестная категория:
+```json
+{
+  "success": false,
+  "message": "Категория не найдена"
+}
+```
+
