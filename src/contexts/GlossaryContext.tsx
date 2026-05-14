@@ -36,7 +36,13 @@ export function GlossaryProvider({ children }: { children: ReactNode }) {
       const next = [...prev, id];
       // Сохраняем на сервер если пользователь авторизован
       if (userId) {
-        saveGlossaryProgress(userId, [id]);
+        void saveGlossaryProgress(userId, [id]).catch((error) => {
+          console.error('Не удалось сохранить термин в backend:', {
+            userId,
+            termId: id,
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
       }
       return next;
     });

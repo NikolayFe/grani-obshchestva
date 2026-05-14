@@ -97,14 +97,21 @@ export async function loadGlossaryProgress(userId: string): Promise<string[]> {
 
 export async function saveGlossaryProgress(userId: string, termIds: string[]): Promise<void> {
   if (termIds.length === 0) return;
+  const response = await fetch(`${API_BASE_URL}/api/progress/glossary`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ userId, termIds }),
+  });
+
+  let data: { success?: boolean; message?: string } | null = null;
   try {
-    await fetch(`${API_BASE_URL}/api/progress/glossary`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, termIds }),
-    });
+    data = await response.json();
   } catch {
-    // Игнорируем ошибки сети — прогресс останется в памяти
+    // Если сервер вернул не JSON, ниже сработает общее сообщение об ошибке.
+  }
+
+  if (!response.ok || data?.success === false) {
+    throw new Error(data?.message || `Не удалось сохранить прогресс (HTTP ${response.status})`);
   }
 }
 
