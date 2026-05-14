@@ -18,6 +18,20 @@ try {
 	console.error('Auth routes не загружены:', error.message);
 }
 
+try {
+	const categoriesRoutes = require('./routes/categoriesRoutes');
+	app.use('/api/categories', categoriesRoutes);
+} catch (error) {
+	console.error('Categories routes не загружены:', error.message);
+}
+
+try {
+	const termsRoutes = require('./routes/termsRoutes');
+	app.use('/api/terms', termsRoutes);
+} catch (error) {
+	console.error('Terms routes не загружены:', error.message);
+}
+
 // Проверка здоровья сервера
 app.get('/health', (req, res) => {
 	res.status(200).json({
@@ -37,6 +51,11 @@ app.get('/', (req, res) => {
 			health: 'GET /health',
 			register: 'POST /api/auth/register',
 			login: 'POST /api/auth/login',
+			categories: 'GET /api/categories',
+			categoryBySlug: 'GET /api/categories/:slug',
+			terms: 'GET /api/terms',
+			termsByCategory: 'GET /api/terms?categorySlug=:slug',
+			termById: 'GET /api/terms/:id',
 		},
 	});
 });

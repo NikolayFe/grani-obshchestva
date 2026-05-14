@@ -71,7 +71,7 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 1. Создай Collection: `Backend Auth`.
 2. Добавь переменную коллекции: `baseUrl = http://localhost:3000`.
-3. Создай 3 запроса:
+3. Создай 3 запроса для авторизации:
 
 ### Health
 
@@ -111,3 +111,94 @@ curl -X POST http://localhost:3000/api/auth/login \
 ```
 
 Ожидается: `200`, `success: true`.
+
+4. Добавь ещё 4 запроса для проверки категорий и терминов:
+
+### Categories
+
+- Method: `GET`
+- URL: `{{baseUrl}}/api/categories`
+
+### Category by slug
+
+- Method: `GET`
+- URL: `{{baseUrl}}/api/categories/ekonomika`
+
+### Terms
+
+- Method: `GET`
+- URL: `{{baseUrl}}/api/terms`
+
+### Terms by category
+
+- Method: `GET`
+- URL: `{{baseUrl}}/api/terms?categorySlug=ekonomika`
+
+### New terms only
+
+- Method: `GET`
+- URL: `{{baseUrl}}/api/terms?isNew=true`
+
+Для удобства в Postman можно назвать их так:
+
+- `GET Health`
+- `POST Register`
+- `POST Login`
+- `GET Categories`
+- `GET Category By Slug`
+- `GET Terms`
+- `GET Terms By Category`
+- `GET New Terms`
+
+## 8) Проверка категорий и терминов
+
+### Список категорий
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/categories" -Method GET
+```
+
+Ожидается: `200`, список из 4 категорий и поле `_count.terms` у каждой.
+
+### Категория по slug
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/categories/ekonomika" -Method GET
+```
+
+Ожидается: `200`, объект категории `Экономика`.
+
+### Все термины
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/terms" -Method GET
+```
+
+Ожидается: `200`, `total: 400`.
+
+### Термины по категории
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/terms?categorySlug=ekonomika" -Method GET
+```
+
+Ожидается: `200`, `total: 100`, и все термины с категорией `Экономика`.
+
+### Только новые термины
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/terms?isNew=true" -Method GET
+```
+
+Ожидается: `200`, `total: 20`.
+
+## 9) Быстрый набор проверок одной командой
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/" -Method GET;
+Invoke-RestMethod -Uri "http://localhost:3000/health" -Method GET;
+Invoke-RestMethod -Uri "http://localhost:3000/api/categories" -Method GET;
+Invoke-RestMethod -Uri "http://localhost:3000/api/categories/ekonomika" -Method GET;
+Invoke-RestMethod -Uri "http://localhost:3000/api/terms?categorySlug=ekonomika" -Method GET;
+Invoke-RestMethod -Uri "http://localhost:3000/api/terms?isNew=true" -Method GET
+```
