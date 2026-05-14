@@ -81,4 +81,43 @@ export function getTerms(params?: { categorySlug?: string; isNew?: boolean }) {
   return getList<ApiTerm>(path);
 }
 
+export async function loadGlossaryProgress(userId: string): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/api/progress/glossary?userId=${encodeURIComponent(userId)}`);
+  let data: { success: boolean; data?: string[]; message?: string } | null = null;
+  try {
+    data = await response.json();
+  } catch {
+    return [];
+  }
+  if (!response.ok || !data?.success || !Array.isArray(data.data)) {
+    return [];
+  }
+  return data.data;
+}
+
+export async function saveGlossaryProgress(userId: string, termIds: string[]): Promise<void> {
+  if (termIds.length === 0) return;
+  try {
+    await fetch(`${API_BASE_URL}/api/progress/glossary`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, termIds }),
+    });
+  } catch {
+    // Игнорируем ошибки сети — прогресс останется в памяти
+  }
+}
+
+export async function clearGlossaryProgressApi(userId: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE_URL}/api/progress/glossary`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+  } catch {
+    // Игнорируем ошибки сети
+  }
+}
+
 export type { ApiCategory, ApiTerm };

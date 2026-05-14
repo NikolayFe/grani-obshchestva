@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TextInput, Pressable, ScrollView, ActivityIndic
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { AuthContext } from '../navigation/AuthContext';
+import { useGlossary } from '../contexts/GlossaryContext';
 import { loginRequest, registerRequest } from '../api/authApi';
 
 export default function RegisterScreen() {
@@ -15,6 +16,7 @@ export default function RegisterScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
   const { signIn } = React.useContext(AuthContext);
+  const { setUserId } = useGlossary();
 
   const handleCreateAccountPress = async () => {
     setErrorText('');
@@ -38,6 +40,11 @@ export default function RegisterScreen() {
         email: email.trim(),
         password: password.trim(),
       });
+      const user = await loginRequest({
+        email: email.trim(),
+        password: password.trim(),
+      });
+      setUserId(user.id);
       signIn();
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Не удалось создать аккаунт');
@@ -67,10 +74,11 @@ export default function RegisterScreen() {
     setIsSubmitting(true);
 
     try {
-      await loginRequest({
+      const user = await loginRequest({
         email: email.trim(),
         password: password.trim(),
       });
+      setUserId(user.id);
       signIn();
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Не удалось выполнить вход');

@@ -36,6 +36,7 @@ model User {
   lastActivityDate DateTime?           @db.Date
   dailyProgress    UserDailyProgress[]
   answers          UserAnswer[]
+  termProgress     UserTermProgress[]
 
   @@map("users")
 }
@@ -58,6 +59,7 @@ model Term {
   definition String
   isNew      Boolean  @default(false)
   category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  userProgress UserTermProgress[]
 
   @@index([categoryId])
   @@map("terms")
@@ -148,4 +150,17 @@ model UserAnswer {
   @@index([questionId])
   @@index([selectedOptionId])
   @@map("user_answers")
+}
+
+model UserTermProgress {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @db.Uuid
+  termId    String   @db.Uuid
+  learnedAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  term      Term     @relation(fields: [termId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, termId])
+  @@index([userId])
+  @@map("user_term_progress")
 }
