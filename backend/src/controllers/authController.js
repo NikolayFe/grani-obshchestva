@@ -136,6 +136,8 @@ async function login(req, res) {
         name: true,
         lastName: true,
         password: true,
+        xpTotal: true,
+        streakDays: true,
       },
     });
 

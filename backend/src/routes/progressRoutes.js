@@ -10,6 +10,7 @@ const {
   saveCategoryTestAnswer,
   getCategoryTestProgress,
   getTestsSummary,
+  getOverallProgress,
 } = require('../controllers/progressController');
 
 const router = express.Router();
@@ -73,5 +74,11 @@ router.get('/tests/category', getCategoryTestProgress);
  * Получить общий прогресс тестов по всем категориям
  */
 router.get('/tests/summary', getTestsSummary);
+
+/**
+ * GET /api/progress/overall?userId=...
+ * Общий прогресс по всем модулям
+ */
+router.get('/overall', getOverallProgress);
 
 module.exports = router;

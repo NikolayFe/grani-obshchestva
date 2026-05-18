@@ -1,25 +1,149 @@
 import { SafeAreaView } from 'react-native-safe-area-context';
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Pressable, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { AuthContext } from '../navigation/AuthContext';
-import { ratingData, ratingPeriodLabels, RatingPeriod } from '../data/ratingData';
-import { activityData, activityPeriodLabels, ActivityPeriod } from '../data/activityData';
+import { activityPeriodLabels } from '../data/activityData';
+import { ratingPeriodLabels } from '../data/ratingData';
+import { getRating, getActivity, RatingData, ActivityData, getOverallProgress, OverallProgress } from '../api/contentApi';
+
+type RatingPeriod = 'week' | 'allTime';
+type ActivityPeriod = 'week' | 'month';
+
+const ACCENT_COLORS = ['#FFE6A6', '#E8E0F7', '#F2E5D4', '#EAD8FF', '#DDF6E8', '#E3EEFF', '#FAD9D9', '#D9F0FA'];
+
+const CIRCLE_SIZE = 110;
+const CIRCLE_STROKE = 10;
+const CIRCLE_HALF = CIRCLE_SIZE / 2;
+const CIRCLE_INNER = CIRCLE_SIZE - CIRCLE_STROKE * 2;
+
+function CircularProgress({ percent }: { percent: number }) {
+  const p = Math.min(100, Math.max(0, Math.round(percent)));
+  const color = colors.primary.main;
+  const track = '#E8DDF4';
+
+  // Right half sweeps from 0% (angle=180) to 50% (angle=0)
+  const rightAngle = p <= 50 ? (1 - p / 50) * 180 : 0;
+  // Left half sweeps from 50% (angle=180) to 100% (angle=0)
+  const leftAngle = p > 50 ? (1 - (p - 50) / 50) * 180 : 180;
+
+  return (
+    <View
+      style={{
+        width: CIRCLE_SIZE,
+        height: CIRCLE_SIZE,
+        borderRadius: CIRCLE_HALF,
+        backgroundColor: track,
+        overflow: 'hidden',
+      }}
+    >
+      {/* Right half: covers 0-50% progress */}
+      <View
+        style={{
+          position: 'absolute',
+          right: 0,
+          width: CIRCLE_HALF,
+          height: CIRCLE_SIZE,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            width: CIRCLE_HALF,
+            height: CIRCLE_SIZE,
+            borderTopRightRadius: CIRCLE_HALF,
+            borderBottomRightRadius: CIRCLE_HALF,
+            backgroundColor: color,
+            transformOrigin: [0, CIRCLE_HALF, 0] as any,
+            transform: [{ rotate: `${rightAngle}deg` }],
+          }}
+        />
+      </View>
+
+      {/* Left half: covers 50-100% progress */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          width: CIRCLE_HALF,
+          height: CIRCLE_SIZE,
+          overflow: 'hidden',
+        }}
+      >
+        <View
+          style={{
+            width: CIRCLE_HALF,
+            height: CIRCLE_SIZE,
+            borderTopLeftRadius: CIRCLE_HALF,
+            borderBottomLeftRadius: CIRCLE_HALF,
+            backgroundColor: color,
+            transformOrigin: [CIRCLE_HALF, CIRCLE_HALF, 0] as any,
+            transform: [{ rotate: `${leftAngle}deg` }],
+          }}
+        />
+      </View>
+
+      {/* Inner white ring */}
+      <View
+        style={{
+          position: 'absolute',
+          top: CIRCLE_STROKE,
+          left: CIRCLE_STROKE,
+          width: CIRCLE_INNER,
+          height: CIRCLE_INNER,
+          borderRadius: CIRCLE_INNER / 2,
+          backgroundColor: '#fff',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Text style={{ fontSize: 22, fontWeight: '800', color }}>{p}%</Text>
+      </View>
+    </View>
+  );
+}
 
 export default function HomeScreen({ navigation }: any) {
-  const { lastOpenedCategory } = React.useContext(AuthContext);
+  const { user, lastOpenedCategory } = React.useContext(AuthContext);
+
   const [ratingPeriod, setRatingPeriod] = React.useState<RatingPeriod>('week');
-  const currentRating = ratingData[ratingPeriod];
   const [activityPeriod, setActivityPeriod] = React.useState<ActivityPeriod>('week');
-  const currentActivity = activityData[activityPeriod];
-  const topPerformer = currentRating.leaderboard[0];
-  const standingList = currentRating.leaderboard.slice(1);
-  const currentUser = currentRating.leaderboard.find((user) => user.isCurrentUser) ?? currentRating.leaderboard[currentRating.leaderboard.length - 1];
-  const courseTitle = lastOpenedCategory?.title ?? 'Обществознание';
+
+  const [ratingData, setRatingData] = React.useState<RatingData | null>(null);
+  const [activityData, setActivityData] = React.useState<ActivityData | null>(null);
+  const [overallProgress, setOverallProgress] = React.useState<OverallProgress | null>(null);
+
+  // Загрузка рейтинга при смене периода
+  React.useEffect(() => {
+    getRating(ratingPeriod, user?.id).then(setRatingData).catch(() => {});
+  }, [ratingPeriod, user?.id]);
+
+  // Загрузка активности при смене периода
+  React.useEffect(() => {
+    if (!user?.id) return;
+    getActivity(user.id, activityPeriod).then(setActivityData).catch(() => {});
+  }, [activityPeriod, user?.id]);
+
+  // Загрузка общего прогресса по модулям
+  React.useEffect(() => {
+    if (!user?.id) return;
+    getOverallProgress(user.id).then(setOverallProgress).catch(() => {});
+  }, [user?.id]);
+
+  const leaderboard = ratingData?.leaderboard ?? [];
+  const topPerformer = leaderboard[0] ?? null;
+  const standingList = leaderboard.slice(1);
+  const currentUser = leaderboard.find((u) => u.isCurrentUser) ?? leaderboard[leaderboard.length - 1] ?? null;
+
+  const courseTitle = lastOpenedCategory?.title ?? overallProgress?.currentCategoryTitle ?? 'Обществознание';
   const courseSubtitle = lastOpenedCategory
     ? `Продолжи обучение в категории «${lastOpenedCategory.title}». Открыто ${lastOpenedCategory.terms} из ${lastOpenedCategory.total} терминов.`
-    : 'Осталось 4 модуля до завершения блока «Экономика».';
+    : overallProgress
+      ? overallProgress.modulesLeft > 0
+        ? `Осталось ${overallProgress.modulesLeft} из ${overallProgress.categoriesTotal} модулей до завершения курса.`
+        : 'Поздравляем! Все модули пройдены.'
+      : 'Начни изучать, чтобы увидеть свой прогресс.';;
 
   const handleContinuePress = () => {
     if (lastOpenedCategory) {
@@ -48,26 +172,22 @@ export default function HomeScreen({ navigation }: any) {
             <Text style={styles.brandText}>Грани общества</Text>
           </View>
           <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>1240 XP</Text>
+            <Text style={styles.headerBadgeText}>{(user?.xpTotal ?? 0).toLocaleString('ru-RU')} XP</Text>
             <Text style={styles.headerDot}>•</Text>
             <Ionicons name="flame" size={12} color={colors.tertiary.main} />
-            <Text style={styles.headerBadgeText}>12</Text>
+            <Text style={styles.headerBadgeText}>{user?.streakDays ?? 0}</Text>
           </View>
         </View>
 
         <View style={styles.welcomeBlock}>
-          <Text style={styles.welcomeTitle}>Привет, Александр!</Text>
+          <Text style={styles.welcomeTitle}>Привет, {user?.name ?? 'друг'}!</Text>
           <Text style={styles.wave}>👋</Text>
         </View>
         <Text style={styles.welcomeSubtitle}>Продолжай в том же духе, ты на верном пути</Text>
 
         <View style={styles.progressCard}>
           <View style={styles.progressCircleWrap}>
-            <View style={styles.progressCircleOuter}>
-              <View style={styles.progressCircleInner}>
-                <Text style={styles.progressCircleText}>75%</Text>
-              </View>
-            </View>
+            <CircularProgress percent={overallProgress?.overallPercent ?? 0} />
           </View>
 
           <View style={styles.courseTag}>
@@ -89,7 +209,7 @@ export default function HomeScreen({ navigation }: any) {
             <View>
               <Text style={styles.activityLabel}>АКТИВНОСТЬ</Text>
               <Text style={styles.activityStat}>
-                {currentActivity.activeDays} из {currentActivity.totalDays} дней · серия {currentActivity.streak} 🔥
+                {activityData?.activeDays ?? 0} из {activityData?.totalDays ?? 7} дней · серия {activityData?.streak ?? 0} 🔥
               </Text>
             </View>
             <View style={styles.activityTabs}>
@@ -112,9 +232,11 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           </View>
 
-          {currentActivity.mode === 'week' ? (
+          {activityData == null ? (
+            <ActivityIndicator size="small" color={colors.primary.main} style={{ marginVertical: 12 }} />
+          ) : activityData.mode === 'week' ? (
             <View style={styles.activityRow}>
-              {currentActivity.days.map((day) => (
+              {activityData.days.map((day) => (
                 <View key={day.id} style={styles.dayItem}>
                   <View
                     style={[
@@ -137,9 +259,9 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
               ))}
             </View>
-          ) : (
+          ) : activityData.mode === 'month' ? (
             <View style={styles.monthGrid}>
-              {currentActivity.weeks.map((week, wi) => (
+              {activityData.weeks.map((week, wi) => (
                 <View key={wi} style={styles.monthWeekRow}>
                   <Text style={styles.monthWeekLabel}>{week.weekLabel}</Text>
                   <View style={styles.monthDots}>
@@ -153,7 +275,7 @@ export default function HomeScreen({ navigation }: any) {
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
         </View>
 
         <View style={styles.ratingCard}>
@@ -163,7 +285,7 @@ export default function HomeScreen({ navigation }: any) {
                 <Ionicons name="trophy-outline" size={16} color={colors.tertiary.main} />
                 <Text style={styles.ratingTitle}>Рейтинг</Text>
               </View>
-              <Text style={styles.ratingSubtitle}>{currentRating.summary}</Text>
+              <Text style={styles.ratingSubtitle}>{ratingData?.summary ?? 'Загрузка...'}</Text>
             </View>
             <Pressable style={styles.ratingGhostButton} onPress={handleOpenRating}>
               <Text style={styles.ratingGhostButtonText}>Открыть</Text>
@@ -190,78 +312,84 @@ export default function HomeScreen({ navigation }: any) {
             </Pressable>
           </View>
 
-          <View style={styles.topLeaderCard}>
-            <View style={styles.topLeaderHeader}>
-              <View style={styles.topLeaderBadge}>
-                <Ionicons name="sparkles" size={12} color={colors.tertiary.main} />
-                <Text style={styles.topLeaderBadgeText}>{currentRating.leaderLabel}</Text>
+          {topPerformer == null ? (
+            <ActivityIndicator size="small" color={colors.primary.main} style={{ marginVertical: 12 }} />
+          ) : (
+            <View style={styles.topLeaderCard}>
+              <View style={styles.topLeaderHeader}>
+                <View style={styles.topLeaderBadge}>
+                  <Ionicons name="sparkles" size={12} color={colors.tertiary.main} />
+                  <Text style={styles.topLeaderBadgeText}>
+                    {ratingPeriod === 'week' ? 'Лидер недели' : 'Лидер за все время'}
+                  </Text>
+                </View>
+                <Text style={styles.topLeaderPlace}>#{topPerformer.place}</Text>
               </View>
-              <Text style={styles.topLeaderPlace}>#{topPerformer.place}</Text>
+              <View style={styles.topLeaderBody}>
+                <View style={[styles.topLeaderAvatar, { backgroundColor: ACCENT_COLORS[0] }]}>
+                  <Ionicons name="person" size={28} color={colors.neutral.dark} />
+                </View>
+                <View style={styles.topLeaderInfo}>
+                  <Text style={styles.topLeaderName}>{topPerformer.name}</Text>
+                  <Text style={styles.topLeaderXp}>{topPerformer.xp.toLocaleString('ru-RU')} XP</Text>
+                  <Text style={styles.topLeaderDelta}>Серия: {topPerformer.streakDays} дн.</Text>
+                </View>
+                <View style={styles.topLeaderReward}>
+                  <Ionicons name="trophy" size={16} color={colors.tertiary.main} />
+                </View>
+              </View>
             </View>
-
-            <View style={styles.topLeaderBody}>
-              <View style={[styles.topLeaderAvatar, { backgroundColor: topPerformer.accent }]}>
-                <Ionicons name="person" size={28} color={colors.neutral.dark} />
-              </View>
-              <View style={styles.topLeaderInfo}>
-                <Text style={styles.topLeaderName}>{topPerformer.name}</Text>
-                <Text style={styles.topLeaderXp}>{topPerformer.xp.toLocaleString('ru-RU')} XP</Text>
-                <Text style={styles.topLeaderDelta}>{topPerformer.delta}</Text>
-              </View>
-              <View style={styles.topLeaderReward}>
-                <Ionicons name="trophy" size={16} color={colors.tertiary.main} />
-              </View>
-            </View>
-          </View>
+          )}
 
           <View style={styles.standingsList}>
-            {standingList.map((user) => (
+            {standingList.map((u, idx) => (
               <View
-                key={user.id}
-                style={[styles.standingRow, user.isCurrentUser && styles.standingRowCurrent]}
+                key={u.id}
+                style={[styles.standingRow, u.isCurrentUser && styles.standingRowCurrent]}
               >
                 <View style={styles.standingLeft}>
-                  <View style={[styles.standingPlace, user.isCurrentUser && styles.standingPlaceCurrent]}>
+                  <View style={[styles.standingPlace, u.isCurrentUser && styles.standingPlaceCurrent]}>
                     <Text
                       style={[
                         styles.standingPlaceText,
-                        user.isCurrentUser && styles.standingPlaceTextCurrent,
+                        u.isCurrentUser && styles.standingPlaceTextCurrent,
                       ]}
                     >
-                      {user.place}
+                      {u.place}
                     </Text>
                   </View>
-                  <View style={[styles.standingAvatar, { backgroundColor: user.accent }]}>
+                  <View style={[styles.standingAvatar, { backgroundColor: ACCENT_COLORS[(idx + 1) % ACCENT_COLORS.length] }]}>
                     <Ionicons name="person" size={18} color={colors.neutral.dark} />
                   </View>
                   <View>
                     <View style={styles.standingNameRow}>
-                      <Text style={styles.standingName}>{user.name}</Text>
-                      {user.isCurrentUser && <Text style={styles.youBadge}>Вы</Text>}
+                      <Text style={styles.standingName}>{u.name}</Text>
+                      {u.isCurrentUser && <Text style={styles.youBadge}>Вы</Text>}
                     </View>
-                    <Text style={styles.standingDelta}>{user.delta}</Text>
+                    <Text style={styles.standingDelta}>Серия: {u.streakDays} дн.</Text>
                   </View>
                 </View>
-                <Text style={styles.standingXp}>{user.xp.toLocaleString('ru-RU')} XP</Text>
+                <Text style={styles.standingXp}>{u.xp.toLocaleString('ru-RU')} XP</Text>
               </View>
             ))}
           </View>
 
-          <View style={styles.currentUserCard}>
-            <View style={styles.currentUserHeader}>
-              <Text style={styles.currentUserLabel}>Твоя позиция</Text>
-              <Text style={styles.currentUserTrend}>{currentRating.currentTrend}</Text>
-            </View>
-            <View style={styles.currentUserBody}>
-              <View>
-                <Text style={styles.currentUserPlace}>#{currentUser.place}</Text>
-                <Text style={styles.currentUserText}>{currentRating.currentHint}</Text>
+          {currentUser != null && (
+            <View style={styles.currentUserCard}>
+              <View style={styles.currentUserHeader}>
+                <Text style={styles.currentUserLabel}>Твоя позиция</Text>
               </View>
-              <Pressable style={styles.currentUserButton} onPress={handleOpenRating}>
-                <Text style={styles.currentUserButtonText}>Поднять рейтинг</Text>
-              </Pressable>
+              <View style={styles.currentUserBody}>
+                <View>
+                  <Text style={styles.currentUserPlace}>#{currentUser.place}</Text>
+                  <Text style={styles.currentUserText}>{currentUser.xp.toLocaleString('ru-RU')} XP</Text>
+                </View>
+                <Pressable style={styles.currentUserButton} onPress={handleOpenRating}>
+                  <Text style={styles.currentUserButtonText}>Поднять рейтинг</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

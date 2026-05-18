@@ -11,9 +11,20 @@ export type LearningCategory = {
   total: number;
 };
 
+export type AuthUser = {
+  id: string;
+  email: string;
+  name: string;
+  lastName: string | null;
+  xpTotal: number;
+  streakDays: number;
+};
+
 export type AuthContextValue = {
-  signIn: () => void;
+  signIn: (user: AuthUser) => void;
   signOut: () => void;
+  user: AuthUser | null;
+  setUser: (user: AuthUser | null) => void;
   lastOpenedCategory: LearningCategory | null;
   setLastOpenedCategory: (category: LearningCategory | null) => void;
 };
@@ -21,6 +32,8 @@ export type AuthContextValue = {
 export const AuthContext = createContext<AuthContextValue>({
   signIn: () => {},
   signOut: () => {},
+  user: null,
+  setUser: () => {},
   lastOpenedCategory: null,
   setLastOpenedCategory: () => {},
 });

@@ -1,11 +1,5 @@
 import { Platform } from 'react-native';
-
-type AuthUser = {
-  id: string;
-  email: string;
-  name: string;
-  lastName: string | null;
-};
+import { AuthUser } from '../navigation/AuthContext';
 
 type AuthApiResponse = {
   success: boolean;

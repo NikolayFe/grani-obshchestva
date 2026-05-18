@@ -6,6 +6,7 @@ import { colors } from '../theme/colors';
 import { AuthContext } from '../navigation/AuthContext';
 import { useGlossary } from '../contexts/GlossaryContext';
 import { loginRequest, registerRequest } from '../api/authApi';
+import { recordActivity } from '../api/contentApi';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -45,7 +46,8 @@ export default function RegisterScreen() {
         password: password.trim(),
       });
       setUserId(user.id);
-      signIn();
+      void recordActivity(user.id).catch(() => {});
+      signIn(user);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Не удалось создать аккаунт');
     } finally {
@@ -79,7 +81,8 @@ export default function RegisterScreen() {
         password: password.trim(),
       });
       setUserId(user.id);
-      signIn();
+      void recordActivity(user.id).catch(() => {});
+      signIn(user);
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : 'Не удалось выполнить вход');
     } finally {

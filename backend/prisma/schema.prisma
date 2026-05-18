@@ -40,6 +40,7 @@ model User {
   answers            UserAnswer[]
   termProgress       UserTermProgress[]
   categoryTestProgress UserCategoryTestProgress[]
+  activityLogs       UserActivityLog[]
 
   @@map("users")
 }
@@ -187,4 +188,14 @@ model UserTermProgress {
   @@map("user_term_progress")
 }
 
+model UserActivityLog {
+  id     String   @id @default(uuid()) @db.Uuid
+  userId String   @db.Uuid
+  date   DateTime @db.Date
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId])
+  @@map("user_activity_logs")
+}
 

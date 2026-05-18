@@ -286,3 +286,85 @@ export type {
   TestStageProgress,
   CategoryTestStagesResponse,
 };
+
+// ─── Users / Rating / Activity ─────────────────────────────────────────────
+
+export type RatingEntry = {
+  id: string;
+  place: number;
+  name: string;
+  xp: number;
+  streakDays: number;
+  isCurrentUser: boolean;
+};
+
+export type RatingData = {
+  period: string;
+  summary: string;
+  leaderboard: RatingEntry[];
+};
+
+export type ActivityDay = {
+  id: number;
+  label: string;
+  active: boolean;
+  current?: boolean;
+};
+
+export type ActivityWeekRow = {
+  weekLabel: string;
+  days: boolean[];
+};
+
+export type ActivityData =
+  | { mode: 'week'; activeDays: number; totalDays: number; streak: number; days: ActivityDay[] }
+  | { mode: 'month'; activeDays: number; totalDays: number; streak: number; weeks: ActivityWeekRow[] };
+
+export async function getRating(period: 'week' | 'allTime', userId?: string): Promise<RatingData> {
+  const params = new URLSearchParams({ period });
+  if (userId) params.set('userId', userId);
+  const response = await fetch(`${API_BASE_URL}/api/users/rating?${params.toString()}`);
+  const data: { success: boolean; data?: RatingData; message?: string } = await response.json();
+  if (!response.ok || !data.success || !data.data) {
+    throw new Error(data.message || 'Не удалось загрузить рейтинг');
+  }
+  return data.data;
+}
+
+export async function getActivity(userId: string, period: 'week' | 'month'): Promise<ActivityData> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/activity?period=${period}`,
+  );
+  const data: { success: boolean; data?: ActivityData; message?: string } = await response.json();
+  if (!response.ok || !data.success || !data.data) {
+    throw new Error(data.message || 'Не удалось загрузить активность');
+  }
+  return data.data;
+}
+
+export async function recordActivity(userId: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/users/${encodeURIComponent(userId)}/activity`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+
+export type OverallProgress = {
+  overallPercent: number;
+  categoriesTotal: number;
+  categoriesDone: number;
+  modulesLeft: number;
+  currentCategorySlug: string | null;
+  currentCategoryTitle: string | null;
+};
+
+export async function getOverallProgress(userId: string): Promise<OverallProgress> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/progress/overall?userId=${encodeURIComponent(userId)}`,
+  );
+  const data: { success: boolean; data?: OverallProgress; message?: string } = await response.json();
+  if (!response.ok || !data.success || !data.data) {
+    throw new Error(data.message || 'Не удалось загрузить прогресс');
+  }
+  return data.data;
+}

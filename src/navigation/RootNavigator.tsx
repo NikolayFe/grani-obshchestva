@@ -15,7 +15,7 @@ import RatingScreen from '../screens/RatingScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
 import TestScreen from '../screens/TestScreen';
 import { colors } from '../theme/colors';
-import { AuthContext, LearningCategory } from './AuthContext';
+import { AuthContext, AuthUser, LearningCategory } from './AuthContext';
 
 const Stack = createStackNavigator();
 const Tabs = createBottomTabNavigator();
@@ -90,16 +90,25 @@ function MainTabs() {
 
 export function RootNavigator() {
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [lastOpenedCategory, setLastOpenedCategory] = useState<LearningCategory | null>(null);
 
   const authContextValue = useMemo(
     () => ({
-      signIn: () => setIsSignedIn(true),
-      signOut: () => setIsSignedIn(false),
+      signIn: (authUser: AuthUser) => {
+        setUser(authUser);
+        setIsSignedIn(true);
+      },
+      signOut: () => {
+        setUser(null);
+        setIsSignedIn(false);
+      },
+      user,
+      setUser,
       lastOpenedCategory,
       setLastOpenedCategory,
     }),
-    [lastOpenedCategory]
+    [user, lastOpenedCategory]
   );
 
   return (

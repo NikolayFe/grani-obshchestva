@@ -923,4 +923,98 @@ module.exports = {
   saveCategoryTestAnswer,
   getCategoryTestProgress,
   getTestsSummary,
+  getOverallProgress,
 };
+
+/**
+ * GET /api/progress/overall?userId=...
+ * Общий прогресс по всем модулям (категориям)
+ */
+async function getOverallProgress(req, res) {
+  try {
+    const { userId } = req.query;
+
+    if (!userId || !isValidUUID(userId)) {
+      return res.status(400).json({ success: false, message: 'userId обязателен и должен быть валидным UUID' });
+    }
+
+    const prisma = getPrismaClient();
+
+    const categories = await prisma.category.findMany({
+      select: { id: true, slug: true, title: true },
+      orderBy: { title: 'asc' },
+    });
+
+    const [records, termCountRows, learnedTermRows] = await Promise.all([
+      prisma.userCategoryTestProgress.findMany({
+        where: { userId },
+        select: { categoryId: true, stageKey: true, passed: true },
+      }),
+      prisma.term.groupBy({
+        by: ['categoryId'],
+        _count: { id: true },
+      }),
+      prisma.userTermProgress.findMany({
+        where: { userId },
+        select: { term: { select: { categoryId: true } } },
+      }),
+    ]);
+
+    const termTotalByCat = {};
+    for (const row of termCountRows) {
+      termTotalByCat[row.categoryId] = row._count.id;
+    }
+    const termLearnedByCat = {};
+    for (const row of learnedTermRows) {
+      const catId = row.term.categoryId;
+      termLearnedByCat[catId] = (termLearnedByCat[catId] || 0) + 1;
+    }
+
+    const STAGE_WEIGHTS = { basic_1: 5, basic_2: 5, final_3: 40 };
+    const MAX_PER_CATEGORY = 50; // 5 + 5 + 40
+
+    let totalScore = 0;
+    let categoriesDone = 0;
+    let firstIncompleteCategory = null;
+
+    for (const cat of categories) {
+      const catRecords = records.filter((r) => r.categoryId === cat.id && r.passed);
+      const testScore = catRecords.reduce((sum, r) => sum + (STAGE_WEIGHTS[r.stageKey] || 0), 0);
+
+      const totalTerms = termTotalByCat[cat.id] || 0;
+      const knownTerms = termLearnedByCat[cat.id] || 0;
+      // glossary: 50% of category progress (0-50 points), tests: other 50% (0-50 points)
+      const glossaryScore = totalTerms > 0 ? (knownTerms / totalTerms) * MAX_PER_CATEGORY : 0;
+
+      const catTotalScore = testScore + glossaryScore;
+      totalScore += catTotalScore;
+
+      if (testScore >= MAX_PER_CATEGORY) {
+        categoriesDone += 1;
+      } else if (!firstIncompleteCategory) {
+        firstIncompleteCategory = { slug: cat.slug, title: cat.title };
+      }
+    }
+
+    const overallPercent = categories.length > 0
+      ? Math.min(100, Math.round(totalScore / (MAX_PER_CATEGORY * 2 * categories.length) * 100))
+      : 0;
+
+    const modulesLeft = categories.length - categoriesDone;
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        overallPercent,
+        categoriesTotal: categories.length,
+        categoriesDone,
+        modulesLeft,
+        currentCategorySlug: firstIncompleteCategory?.slug ?? null,
+        currentCategoryTitle: firstIncompleteCategory?.title ?? null,
+      },
+    });
+  } catch (error) {
+    console.error('Ошибка getOverallProgress:', error);
+    return res.status(500).json({ success: false, message: 'Внутренняя ошибка сервера' });
+  }
+}
