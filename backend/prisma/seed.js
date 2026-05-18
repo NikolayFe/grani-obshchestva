@@ -634,6 +634,24 @@ function buildGlossaryQuestions(allTerms) {
 async function main() {
   console.log('Начало заполнения базы данных...');
 
+  // Проверяем, есть ли уже данные — если да, пропускаем очистку
+  const existingCats = await prisma.category.count();
+  const existingTerms = await prisma.term.count();
+  const existingQuestions = await prisma.question.count();
+
+  const EXPECTED_CATS = categories.length;           // 4
+  const EXPECTED_TERMS = 400;
+  const EXPECTED_QUESTIONS = 400;
+
+  if (
+    existingCats === EXPECTED_CATS &&
+    existingTerms >= EXPECTED_TERMS &&
+    existingQuestions >= EXPECTED_QUESTIONS
+  ) {
+    console.log(`✓ Данные уже есть (${existingCats} кат., ${existingTerms} терм., ${existingQuestions} вопр.) — пропускаем заполнение.`);
+    return;
+  }
+
   // Удаляем сначала зависимые тестовые данные.
   await prisma.userAnswer.deleteMany();
   await prisma.userCategoryTestProgress.deleteMany();
