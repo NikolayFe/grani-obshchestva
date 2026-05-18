@@ -285,10 +285,11 @@ async function clearGlossaryProgressByCategory(req, res) {
  */
 async function getTestQuestions(req, res) {
   try {
-    const { categorySlug, limit, difficulty } = req.query;
+    const { categorySlug, limit, difficulty, includeAll } = req.query;
 
     const parsedLimit = Number.parseInt(String(limit || '12'), 10);
     const take = Number.isNaN(parsedLimit) ? 12 : Math.max(1, Math.min(parsedLimit, 100));
+    const isIncludeAll = String(includeAll || '').toLowerCase() === 'true' || String(includeAll || '') === '1';
 
     const prisma = getPrismaClient();
 
@@ -343,13 +344,15 @@ async function getTestQuestions(req, res) {
 
     const validQuestions = rawQuestions.filter((question) => question.options.length === 4);
 
-    const selectedQuestions = shuffleArray(validQuestions).slice(0, take).map((question) => ({
+    const selectedQuestions = shuffleArray(validQuestions)
+      .slice(0, isIncludeAll ? validQuestions.length : take)
+      .map((question) => ({
       id: question.id,
       text: question.text,
       source: question.source,
       category: question.category,
       options: shuffleArray(question.options),
-    }));
+      }));
 
     return res.status(200).json({
       success: true,

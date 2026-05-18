@@ -174,6 +174,7 @@ export async function loadTestQuestions(params: {
   categorySlug?: string;
   limit?: number;
   difficulty?: number;
+  includeAll?: boolean;
 }): Promise<ApiTestQuestion[]> {
   const query = new URLSearchParams();
 
@@ -185,6 +186,9 @@ export async function loadTestQuestions(params: {
   }
   if (typeof params.difficulty === 'number') {
     query.set('difficulty', String(params.difficulty));
+  }
+  if (params.includeAll) {
+    query.set('includeAll', 'true');
   }
 
   const response = await fetch(`${API_BASE_URL}/api/progress/tests/questions?${query.toString()}`);

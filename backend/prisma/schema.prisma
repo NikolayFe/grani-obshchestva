@@ -1,4 +1,4 @@
-﻿generator client {
+generator client {
   provider = "prisma-client-js"
   engineType = "classic"
 }
@@ -25,18 +25,20 @@ enum TestContext {
 }
 
 model User {
-  id               String              @id @default(uuid()) @db.Uuid
-  email            String              @unique
-  password         String
-  name             String
-  lastName         String?
-  createdAt        DateTime            @default(now())
-  xpTotal          Int                 @default(0)
-  streakDays       Int                 @default(0)
-  lastActivityDate DateTime?           @db.Date
-  dailyProgress    UserDailyProgress[]
-  answers          UserAnswer[]
-  termProgress     UserTermProgress[]
+  id                 String              @id @default(uuid()) @db.Uuid
+  email              String              @unique
+  password           String
+  name               String
+  lastName           String?
+  createdAt          DateTime            @default(now())
+  xpTotal            Int                 @default(0)
+  streakDays         Int                 @default(0)
+  lastActivityDate   DateTime?           @db.Date
+  livesCount         Int                 @default(3)
+  livesLastUpdatedAt DateTime            @default(now())
+  dailyProgress      UserDailyProgress[]
+  answers            UserAnswer[]
+  termProgress       UserTermProgress[]
   categoryTestProgress UserCategoryTestProgress[]
 
   @@map("users")

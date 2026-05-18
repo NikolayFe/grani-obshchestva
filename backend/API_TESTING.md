@@ -660,3 +660,136 @@ Body:
 }
 ```
 
+---
+
+## 7. Lives (жизни ежедневного теста)
+
+`userId` берётся из ответа `POST /api/auth/login` → поле `user.id`.
+
+### Получить текущий статус жизней
+
+Запрос:
+`GET http://localhost:3000/api/lives?userId=1f501552-69ea-4c1d-8e76-23bef11163af`
+
+Правильный ответ `200` (жизни есть, таймер не идёт):
+```json
+{
+  "success": true,
+  "data": {
+    "lives": 3,
+    "maxLives": 3,
+    "msToNextLife": 0,
+    "nextLifeAt": null
+  }
+}
+```
+
+Правильный ответ `200` (идёт восстановление):
+```json
+{
+  "success": true,
+  "data": {
+    "lives": 1,
+    "maxLives": 3,
+    "msToNextLife": 87000,
+    "nextLifeAt": 1747600000000
+  }
+}
+```
+
+---
+
+### Списать одну жизнь
+
+Запрос:
+`POST http://localhost:3000/api/lives/consume`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af"
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "lives": 2,
+    "maxLives": 3,
+    "msToNextLife": 120000,
+    "nextLifeAt": 1747600000000
+  }
+}
+```
+
+После списания последней жизни (`lives` = 0):
+```json
+{
+  "success": true,
+  "data": {
+    "lives": 0,
+    "maxLives": 3,
+    "msToNextLife": 120000,
+    "nextLifeAt": 1747600000000
+  }
+}
+```
+
+---
+
+### Установить жизни вручную
+
+Запрос:
+`POST http://localhost:3000/api/lives/set`
+
+Body:
+```json
+{
+  "userId": "1f501552-69ea-4c1d-8e76-23bef11163af",
+  "lives": 0
+}
+```
+
+Правильный ответ `200`:
+```json
+{
+  "success": true,
+  "data": {
+    "lives": 0,
+    "maxLives": 3,
+    "msToNextLife": 120000,
+    "nextLifeAt": 1747600000000
+  }
+}
+```
+
+---
+
+### Ошибки для lives
+
+Невалидный `userId`:
+```json
+{
+  "success": false,
+  "message": "userId обязателен и должен быть валидным UUID"
+}
+```
+
+Пользователь не найден:
+```json
+{
+  "success": false,
+  "message": "Пользователь не найден"
+}
+```
+
+Некорректное значение `lives` (не в диапазоне 0–3):
+```json
+{
+  "success": false,
+  "message": "lives должно быть числом от 0 до 3"
+}
+```
+

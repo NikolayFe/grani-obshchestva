@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { colors } from '../theme/colors';
 import { getCategories, getTerms, getCategoryTestStagesProgress } from '../api/contentApi';
 import { useGlossary } from '../contexts/GlossaryContext';
+import { useDailyLives } from '../contexts/DailyLivesContext';
 
 const categoryUiMeta: Record<
   string,
@@ -51,6 +52,18 @@ function ProgressBar({ progress, color, bg }: { progress: number; color: string;
   );
 }
 
+function formatTimeToLife(ms: number) {
+  if (ms <= 0) return 'скоро';
+  const totalSeconds = Math.ceil(ms / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours > 0) {
+    return minutes === 0 ? `${hours} ч` : `${hours} ч ${minutes} мин`;
+  }
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
 export default function CategoriesScreen({ navigation }: any) {
   const [categories, setCategories] = useState<any[]>([]);
   const [errorText, setErrorText] = useState('');
@@ -58,6 +71,7 @@ export default function CategoriesScreen({ navigation }: any) {
   const [testProgressBySlug, setTestProgressBySlug] = useState<Record<string, number>>({});
   
   const { knownTermIds, userId } = useGlossary();
+  const { lives: dailyLives, maxLives, msToNextLife: dailyMsToNextLife } = useDailyLives();
 
   const loadData = React.useCallback(async (mountedRef?: { current: boolean }) => {
     try {
@@ -159,7 +173,8 @@ export default function CategoriesScreen({ navigation }: any) {
         </Text>
 
         <Pressable
-          style={styles.dailyCard}
+          style={[styles.dailyCard, dailyLives <= 0 && styles.dailyCardDisabled]}
+          disabled={dailyLives <= 0}
           onPress={() =>
             navigation.navigate('Test', {
               testMode: 'daily',
@@ -173,17 +188,23 @@ export default function CategoriesScreen({ navigation }: any) {
               <Ionicons name="flash" size={20} color="#FFFFFF" />
             </View>
             <View style={styles.dailyLivesWrap}>
-              <Text style={styles.dailyLivesText}>Жизни: ❤❤❤</Text>
+              <Text style={styles.dailyLivesText}>Жизни: {'❤'.repeat(dailyLives) || '0'}/{maxLives}</Text>
             </View>
           </View>
 
           <Text style={styles.dailyTitle}>Ежедневное тестирование</Text>
           <Text style={styles.dailyDesc}>
-            Смешанный тест по всем категориям + вопросы по терминам из глоссария.
+            Все вопросы без лимита по количеству. Тест закончится только когда жизни закончатся.
           </Text>
 
+          {dailyLives < maxLives && (
+            <Text style={styles.dailyRestoreText}>
+              Следующая жизнь через {formatTimeToLife(dailyMsToNextLife)}.
+            </Text>
+          )}
+
           <View style={styles.dailyButton}>
-            <Text style={styles.dailyButtonText}>Начать сейчас</Text>
+            <Text style={styles.dailyButtonText}>{dailyLives <= 0 ? 'Ждём восстановление жизней' : 'Начать сейчас'}</Text>
             <Ionicons name="arrow-forward" size={15} color="#F97316" />
           </View>
         </Pressable>
@@ -325,6 +346,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
+  dailyCardDisabled: {
+    opacity: 0.8,
+  },
   dailyTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -362,7 +386,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#9A3412',
     lineHeight: 18,
+    marginBottom: 8,
+  },
+  dailyRestoreText: {
+    fontSize: 12,
+    color: '#9A3412',
     marginBottom: 12,
+    fontWeight: '600',
   },
   dailyButton: {
     alignSelf: 'flex-start',

@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, Pressable, ScrollView, ActivityIndicator } from
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useGlossary } from '../contexts/GlossaryContext';
+import { useDailyLives } from '../contexts/DailyLivesContext';
 import {
   ApiTestQuestion,
   loadTestQuestions,
@@ -11,8 +12,6 @@ import {
   saveTestAnswer,
   TestStageKey,
 } from '../api/contentApi';
-
-const DAILY_LIVES = 3;
 
 export default function TestScreen({ route, navigation }: any) {
   const testMode: string = route?.params?.testMode || 'category';
@@ -25,7 +24,8 @@ export default function TestScreen({ route, navigation }: any) {
 
   const stageKey: TestStageKey | undefined = route?.params?.stageKey;
   const stageTitle: string = route?.params?.stageTitle ?? 'Тест';
-  const questionLimit: number = Number(route?.params?.questionLimit ?? (isDailyTest ? 12 : 25));
+  const routeQuestionLimit = route?.params?.questionLimit;
+  const questionLimit: number = routeQuestionLimit == null ? 25 : Number(routeQuestionLimit);
   const requiredPercent: number = Number(route?.params?.requiredPercent ?? 80);
   const difficulty: number | undefined = route?.params?.difficulty;
   const weightPercent: number = Number(route?.params?.weightPercent ?? 0);
@@ -39,13 +39,29 @@ export default function TestScreen({ route, navigation }: any) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [score, setScore] = useState(0);
+  const [totalAnswered, setTotalAnswered] = useState(0);
   const [finished, setFinished] = useState(false);
-  const [lives, setLives] = useState(DAILY_LIVES);
   const [finishedByLives, setFinishedByLives] = useState(false);
+
+  const {
+    lives,
+    msToNextLife,
+    isLoading: isLivesLoading,
+    consumeOneLife,
+    forceSetLives,
+  } = useDailyLives();
 
   const [stageSaved, setStageSaved] = useState(false);
   const [stageSaveError, setStageSaveError] = useState('');
   const [stageProgressAfterSave, setStageProgressAfterSave] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!isDailyTest) return;
+    if (isLivesLoading) return;
+    if (lives > 0) return;
+    setFinishedByLives(true);
+    setFinished(true);
+  }, [isDailyTest, isLivesLoading, lives]);
 
   useEffect(() => {
     let mounted = true;
@@ -57,8 +73,9 @@ export default function TestScreen({ route, navigation }: any) {
       try {
         const loadedQuestions = await loadTestQuestions({
           categorySlug: categorySlug || undefined,
-          limit: questionLimit,
+          limit: isDailyTest ? undefined : questionLimit,
           difficulty,
+          includeAll: isDailyTest,
         });
 
         if (!mounted) return;
@@ -78,16 +95,25 @@ export default function TestScreen({ route, navigation }: any) {
     return () => {
       mounted = false;
     };
-  }, [categorySlug, questionLimit, difficulty]);
+  }, [categorySlug, questionLimit, difficulty, isDailyTest]);
 
-  const question = questions[currentQuestion];
+  const questionIndex = questions.length > 0 ? currentQuestion % questions.length : 0;
+  const question = questions[questionIndex];
   const percent = useMemo(() => {
-    if (questions.length === 0) return 0;
-    return Math.round((score / questions.length) * 100);
-  }, [score, questions.length]);
+    const denominator = isDailyTest ? totalAnswered : questions.length;
+    if (denominator === 0) return 0;
+    return Math.round((score / denominator) * 100);
+  }, [score, questions.length, isDailyTest, totalAnswered]);
 
   useEffect(() => {
     if (!finished) return;
+
+    if (isDailyTest && finishedByLives) {
+      void forceSetLives(0).catch(() => {
+        // Если запись в storage недоступна, оставляем локальное состояние.
+      });
+    }
+
     if (!isCategoryStage || !stageKey || !categorySlug || !userId) return;
     if (stageSaved) return;
 
@@ -138,9 +164,23 @@ export default function TestScreen({ route, navigation }: any) {
     }
 
     setTimeout(() => {
+      void (async () => {
+      setTotalAnswered((prev) => prev + 1);
+
       if (!isCorrect && isDailyTest) {
-        const nextLives = lives - 1;
-        setLives(nextLives);
+        let nextLives = lives;
+        try {
+          const status = await consumeOneLife();
+          nextLives = status.lives;
+        } catch {
+          nextLives = Math.max(0, lives - 1);
+          try {
+            await forceSetLives(nextLives);
+          } catch {
+            // игнорируем вторичную ошибку
+          }
+        }
+
         if (nextLives <= 0) {
           setFinishedByLives(true);
           setFinished(true);
@@ -152,16 +192,23 @@ export default function TestScreen({ route, navigation }: any) {
         setScore((prev) => prev + 1);
       }
 
+      if (isDailyTest) {
+        setCurrentQuestion((prev) => prev + 1);
+        setSelectedAnswer(null);
+        return;
+      }
+
       if (currentQuestion < questions.length - 1) {
         setCurrentQuestion((prev) => prev + 1);
         setSelectedAnswer(null);
       } else {
         setFinished(true);
       }
+      })();
     }, 400);
   };
 
-  if (isLoading) {
+  if (isLoading || isLivesLoading) {
     return (
       <SafeAreaView style={styles.screen}>
         <View style={styles.centeredState}>
@@ -195,7 +242,9 @@ export default function TestScreen({ route, navigation }: any) {
 
           <View style={[styles.resultScore, { borderColor: categoryColor }]}>
             <Text style={[styles.resultPercent, { color: categoryColor }]}>{percent}%</Text>
-            <Text style={styles.resultMeta}>{score}/{questions.length} правильных ответов</Text>
+            <Text style={styles.resultMeta}>
+              {score}/{isDailyTest ? totalAnswered : questions.length} правильных ответов
+            </Text>
           </View>
 
           {!isDailyTest && (
@@ -205,7 +254,10 @@ export default function TestScreen({ route, navigation }: any) {
           )}
 
           {finishedByLives && (
-            <Text style={styles.resultLivesText}>Ежедневный тест завершен: закончились жизни.</Text>
+            <Text style={styles.resultLivesText}>
+              Ежедневный тест завершен: закончились жизни.
+              {msToNextLife > 0 ? ` Следующая жизнь появится примерно через ${Math.ceil(msToNextLife / (60 * 60 * 1000))} ч.` : ''}
+            </Text>
           )}
 
           {stageProgressAfterSave !== null && (
@@ -237,23 +289,27 @@ export default function TestScreen({ route, navigation }: any) {
           <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>{isCategoryStage ? stageTitle : categoryTitle}</Text>
             <Text style={styles.headerSubtitle}>
-              Вопрос {currentQuestion + 1} из {questions.length}
+              {isDailyTest
+                ? `Вопрос ${currentQuestion + 1} · без ограничения по количеству`
+                : `Вопрос ${currentQuestion + 1} из ${questions.length}`}
             </Text>
           </View>
           {isDailyTest && <Text style={styles.livesText}>❤ {lives}</Text>}
         </View>
 
-        <View style={styles.progressTrack}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${Math.round(((currentQuestion + 1) / questions.length) * 100)}%`,
-                backgroundColor: categoryColor,
-              },
-            ]}
-          />
-        </View>
+        {!isDailyTest && (
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${Math.round(((currentQuestion + 1) / questions.length) * 100)}%`,
+                  backgroundColor: categoryColor,
+                },
+              ]}
+            />
+          </View>
+        )}
 
         <View style={styles.questionCard}>
           <Text style={styles.questionText}>{question.text}</Text>

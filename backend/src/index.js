@@ -39,6 +39,13 @@ try {
 	console.error('Progress routes не загружены:', error.message);
 }
 
+try {
+	const livesRoutes = require('./routes/livesRoutes');
+	app.use('/api/lives', livesRoutes);
+} catch (error) {
+	console.error('Lives routes не загружены:', error.message);
+}
+
 // Проверка здоровья сервера
 app.get('/health', (req, res) => {
 	res.status(200).json({
